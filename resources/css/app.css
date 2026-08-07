@@ -1,4 +1,25 @@
+/**
+ * RTL — governing rule for this entire project (front and admin):
+ *
+ * This is ONE stylesheet that works in both directions. Never write a
+ * separate rtl.css, and never add [dir="rtl"] overrides for spacing.
+ * Use logical properties everywhere:
+ *
+ *   banned:   ml- mr- pl- pr- left- right- text-left text-right
+ *             border-l border-r rounded-l rounded-r
+ *   allowed:  ms- me- ps- pe- start- end- text-start text-end
+ *             border-s border-e rounded-s rounded-e
+ *
+ * <html> gets its dir/lang from the current locale. The only accepted
+ * exception is flipping directional icons — see .icon-directional in
+ * base.css.
+ */
+
 @import 'tailwindcss';
+@import './theme.css';
+@import './base.css';
+@import './fonts-latin.css';
+@import './fonts-arabic.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -6,6 +27,29 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    /*
+     * All four fonts are self-hosted — see fonts.css for the @font-face
+     * declarations (Clash Display/Satoshi for Latin, Alexandria/IBM Plex
+     * Sans Arabic for Arabic). The storefront bundle loads all four; the
+     * admin bundle only imports the Arabic pair (see admin.css).
+     */
+    --font-heading: 'Clash Display', 'Alexandria', system-ui, sans-serif;
+    --font-body: 'Satoshi', 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+    body {
+        font-family: var(--font-body);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: var(--font-heading);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+    }
 }

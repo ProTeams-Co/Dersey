@@ -1,4 +1,18 @@
+/**
+ * Admin panel bundle — Arabic only, RTL fixed.
+ *
+ * Imports the SAME shared tokens as app.css (theme.css, base.css) so the
+ * admin never redeclares a color/spacing/shadow value. All four fonts are
+ * self-hosted, split across fonts-latin.css and fonts-arabic.css so each
+ * bundle can pull in only what it needs — admin imports fonts-arabic.css
+ * ONLY. It deliberately does NOT import fonts-latin.css: Clash Display and
+ * Satoshi are storefront-only and must never end up in the admin bundle.
+ */
+
 @import 'tailwindcss';
+@import './theme.css';
+@import './base.css';
+@import './fonts-arabic.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -6,6 +20,37 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-admin: 'Alexandria', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+
+    /* Denser grid than the storefront — admin screens need more information
+     * in less space. Overriding this single base unit scales every
+     * padding/margin/gap utility down instead of redefining the whole
+     * spacing scale a second time. */
+    --spacing: 0.2rem;
+}
+
+@layer base {
+    html {
+        /* Density comes from --spacing alone (0.2rem above), not from
+         * shrinking type. Smaller text fatigues the eye over a full day of
+         * admin work, and this respects the user's browser font-size
+         * preference fully — no override at all, deliberately. */
+        font-size: 100%;
+    }
+
+    body {
+        font-family: var(--font-admin);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: var(--font-admin);
+        font-weight: 600;
+        letter-spacing: -0.01em; /* Arabic display faces need less negative
+                                    tracking than Clash Display does */
+    }
 }
