@@ -1,0 +1,88 @@
+/**
+ * Shared @layer base rules for both app.css and admin.css. Font-family
+ * application (body/headings) is NOT here — each entry file sets its own
+ * --font-heading/--font-body/--font-admin and applies it separately, since
+ * the storefront and admin load different font stacks.
+ */
+
+@layer base {
+    * {
+        box-sizing: border-box;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        html {
+            scroll-behavior: auto;
+        }
+    }
+
+    body {
+        background-color: var(--color-canvas);
+        color: var(--color-ink);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Never remove focus outlines project-wide — this is the one place
+     * that's allowed to define what focus looks like. */
+    :focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+        border-radius: var(--radius-sm);
+    }
+
+    ::selection {
+        background-color: var(--color-accent-200);
+        color: var(--color-ink);
+    }
+
+    /* WebKit scrollbar */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: var(--color-surface);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: var(--color-neutral-300);
+        border-radius: var(--radius-full);
+        border: 2px solid var(--color-surface);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--color-neutral-400);
+    }
+
+    /* Firefox */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-neutral-300) var(--color-surface);
+    }
+
+    img,
+    video {
+        max-width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    /* Arabic text sits taller than Latin at the same line-height — bump it
+     * up globally under RTL rather than special-casing every component. */
+    [dir='rtl'] {
+        line-height: 1.7;
+    }
+
+    /* The one accepted exception to "no [dir=rtl] overrides": directional
+     * icons (e.g. a "next" arrow) need to visually flip, since logical
+     * properties don't affect glyph orientation. */
+    [dir='rtl'] .icon-directional {
+        transform: scaleX(-1);
+    }
+}
