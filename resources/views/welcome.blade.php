@@ -6,6 +6,13 @@
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
+        <!-- Favicons -->
+        <link rel="icon" type="image/png" href="/favicon-96x96.png?v=20260807" sizes="96x96" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260807" />
+        <link rel="shortcut icon" href="/favicon.ico?v=20260807" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260807" />
+        <link rel="manifest" href="/site.webmanifest?v=20260807" />
+
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
