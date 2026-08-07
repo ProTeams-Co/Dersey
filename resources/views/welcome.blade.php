@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+{{--
+    TODO(1.3): replace the manual dir check below with
+    LaravelLocalization::getCurrentLocaleDirection() once 'ar' is uncommented
+    in config/laravellocalization.php — that config isn't set up yet, out of
+    this batch's scope, so this is a deliberate placeholder, not an oversight.
+--}}
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ in_array(app()->getLocale(), ['ar']) ? 'rtl' : 'ltr' }}">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,7 +19,22 @@
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260807" />
         <link rel="manifest" href="/site.webmanifest?v=20260807" />
 
-        <!-- Fonts -->
+        <!-- Fonts — all four self-hosted, see resources/css/fonts-latin.css / fonts-arabic.css -->
+        {{--
+            No font preload on this page — it's Laravel's stock placeholder,
+            removed in Batch 1.6, not worth optimizing for. The real layout
+            (Phase 2+) should preload weight 400 + the heavier weight actually
+            used, chosen by the current script (Latin -> Satoshi, Arabic -> IBM
+            Plex Sans Arabic — never both), the same way this file did before:
+            @if (app()->getLocale() === 'ar') -> IBM Plex Sans Arabic 400+600
+            @else -> Satoshi 400+700 (no native 600; 700 is what font-weight:600
+            resolves to per the CSS cascade — see fonts-latin.css).
+            TODO(1.3): once localization routing lands, locale comes from the
+            URL instead of APP_LOCALE — the placeholder-content mismatch that
+            made this locale-based preload occasionally wrong (e.g. an
+            unlocalized English stub page under an 'ar' URL) goes away then.
+        --}}
+
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
