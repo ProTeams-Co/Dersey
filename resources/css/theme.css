@@ -1,0 +1,260 @@
+/**
+ * Shared design tokens for both the storefront (app.css) and the admin
+ * panel (admin.css). Font-family tokens live in each entry file instead —
+ * all four fonts are self-hosted from fonts.css, but the storefront loads
+ * all four while the admin bundle only pulls in the Arabic pair (see the
+ * comment in admin.css) — everything else here is common to both.
+ *
+ * Every color value below was generated and reviewed manually (OKLCH,
+ * gamut-checked, WCAG/CIEDE2000-verified) — do not "improve" or regenerate
+ * any of them without going through the same review.
+ */
+
+@theme {
+    /* ------------------------------------------------------------------
+     * Neutral scale — a single warm-gray track. canvas/surface/line/muted
+     * /ink are aliases onto fixed points of this one scale (not separate
+     * colors) so they can never drift out of the same family.
+     * ---------------------------------------------------------------- */
+    --color-neutral-50: #FAF8F5;
+    --color-neutral-100: #F0ECE6;
+    --color-neutral-200: #E2DCD3;
+    --color-neutral-300: #BAB4AC;
+    --color-neutral-400: #938E87;
+    --color-neutral-500: #6E6A64;
+    --color-neutral-600: #595650;
+    --color-neutral-700: #46423E;
+    --color-neutral-800: #33302C;
+    --color-neutral-900: #211E1B;
+    /* --color-neutral-950 is intentionally NOT generated from this scale's
+     * 78.2deg warm hue like every other step above. It's the original brand
+     * ink color, kept as-is. Blending its hue toward the warm family was
+     * tried and measured at dE2000 = 5.5 against the original — a real,
+     * visible shift, not noise — so the brand color stays independent
+     * instead. Do not "fix" this to match the rest of the scale. */
+    --color-neutral-950: #16161A;
+
+    /* canvas/surface deliberately sit close together (low contrast by
+     * design) — a card lifts off the page via shadow/border, not a big
+     * color jump, or it reads as a flat gray box instead of a soft page. */
+    --color-canvas: var(--color-neutral-50);
+    --color-surface: var(--color-neutral-100);
+    --color-line: var(--color-neutral-200);
+    --color-muted: var(--color-neutral-500);
+    --color-ink: var(--color-neutral-950);
+
+    /* Border roles — do not use `line` for interactive element borders.
+     * line-on-canvas is only 1.29:1 (decorative-only). Input/select/etc.
+     * borders must use border-interactive (3.07:1, WCAG 1.4.11 minimum for
+     * non-text UI components — passes by a thin margin, guarded by a test). */
+    --color-border: var(--color-neutral-200);
+    --color-border-interactive: var(--color-neutral-400);
+    --color-border-strong: var(--color-neutral-500);
+
+    /* ------------------------------------------------------------------
+     * Semantic / interactive colors. Each scale (50-900) was generated in
+     * OKLCH with the base color anchored at its true perceptual position
+     * (not forced to 500) — see the anchor markers below. DEFAULT aliases
+     * to that anchor so `bg-primary` works without a number suffix.
+     * ---------------------------------------------------------------- */
+
+    --color-primary-50: #DBDFDE;
+    --color-primary-100: #C3CBC9;
+    --color-primary-200: #ADB7B4;
+    --color-primary-300: #96A4A0;
+    --color-primary-400: #81918C;
+    --color-primary-500: #6C7F79;
+    --color-primary-600: #576D67;
+    --color-primary-700: #435B54;
+    --color-primary-800: #2F4A43; /* anchor — the brand green as specified */
+    --color-primary-900: #1F2C28;
+    --color-primary: var(--color-primary-800);
+    /* white text passes on primary-800 (9.63:1) and everything darker (600-900).
+     * Do not put white text on primary-500 or lighter — it fails AA. */
+    --color-primary-foreground: #FFFFFF;
+
+    --color-accent-50: #E4DCD9;
+    --color-accent-100: #E1C9C0;
+    --color-accent-200: #DDB7A7;
+    --color-accent-300: #D8A48F; /* anchor — the terracotta as specified */
+    --color-accent-400: #BB8C7A;
+    --color-accent-500: #9F7665;
+    --color-accent-600: #845F51;
+    --color-accent-700: #6A4A3D;
+    --color-accent-800: #51362B;
+    --color-accent-900: #39231A;
+    --color-accent: var(--color-accent-300);
+    /* accent-300 fails white text (2.18:1) — use ink, not white, on the
+     * DEFAULT accent background (sale badges, etc). Ink passes from
+     * 50-400; from 600+ accent needs white text instead. */
+    --color-accent-foreground: var(--color-ink);
+
+    --color-success-50: #D7E1DB;
+    --color-success-100: #C2D2C7;
+    --color-success-200: #ACC4B4;
+    --color-success-300: #96B5A1;
+    --color-success-400: #81A78F;
+    --color-success-500: #6B997D;
+    --color-success-600: #568B6B;
+    --color-success-700: #3F7D5A; /* anchor */
+    --color-success-800: #28553C;
+    --color-success-900: #12301F;
+    --color-success: var(--color-success-700);
+    --color-success-foreground: #FFFFFF; /* passes at 4.89:1 — thin margin, don't lighten */
+
+    --color-warning-50: #E8DBD1;
+    --color-warning-100: #E4CBB8;
+    --color-warning-200: #DFBB9F;
+    --color-warning-300: #D9AB85;
+    --color-warning-400: #D49B6B;
+    --color-warning-500: #CE8B4F;
+    --color-warning-600: #C77A2E; /* anchor — the specified terracotta-orange */
+    --color-warning-700: #985919;
+    --color-warning-800: #683C10;
+    --color-warning-900: #392310;
+    --color-warning: var(--color-warning-600);
+    /* warning-600 fails white text (3.36:1) — same situation as accent.
+     * Use ink, not white, on DEFAULT warning backgrounds. */
+    --color-warning-foreground: var(--color-ink);
+
+    --color-danger-50: #ECD9D6;
+    --color-danger-100: #E5C1BB;
+    --color-danger-200: #DDA8A1;
+    --color-danger-300: #D49087;
+    --color-danger-400: #CA786E;
+    --color-danger-500: #BF5F55;
+    --color-danger-600: #B3453C; /* anchor */
+    --color-danger-700: #8E342D;
+    --color-danger-800: #6A241F;
+    --color-danger-900: #491511;
+    --color-danger: var(--color-danger-600);
+    --color-danger-foreground: #FFFFFF;
+
+    /* ------------------------------------------------------------------
+     * Type scale — xs to 9xl, each with a matched line-height. Larger
+     * sizes get progressively more negative letter-spacing (tight tracking
+     * reads better at display sizes; body text stays at 0).
+     * ---------------------------------------------------------------- */
+    --text-xs: 0.75rem;
+    --text-xs--line-height: 1rem;
+    --text-xs--letter-spacing: 0em;
+
+    --text-sm: 0.875rem;
+    --text-sm--line-height: 1.25rem;
+    --text-sm--letter-spacing: 0em;
+
+    --text-base: 1rem;
+    --text-base--line-height: 1.5rem;
+    --text-base--letter-spacing: 0em;
+
+    --text-lg: 1.125rem;
+    --text-lg--line-height: 1.75rem;
+    --text-lg--letter-spacing: -0.01em;
+
+    --text-xl: 1.25rem;
+    --text-xl--line-height: 1.75rem;
+    --text-xl--letter-spacing: -0.01em;
+
+    --text-2xl: 1.5rem;
+    --text-2xl--line-height: 2rem;
+    --text-2xl--letter-spacing: -0.015em;
+
+    --text-3xl: 1.875rem;
+    --text-3xl--line-height: 2.25rem;
+    --text-3xl--letter-spacing: -0.02em;
+
+    --text-4xl: 2.25rem;
+    --text-4xl--line-height: 2.5rem;
+    --text-4xl--letter-spacing: -0.02em;
+
+    --text-5xl: 3rem;
+    --text-5xl--line-height: 1.1;
+    --text-5xl--letter-spacing: -0.025em;
+
+    --text-6xl: 3.75rem;
+    --text-6xl--line-height: 1.05;
+    --text-6xl--letter-spacing: -0.03em;
+
+    --text-7xl: 4.5rem;
+    --text-7xl--line-height: 1.05;
+    --text-7xl--letter-spacing: -0.03em;
+
+    --text-8xl: 6rem;
+    --text-8xl--line-height: 1;
+    --text-8xl--letter-spacing: -0.035em;
+
+    --text-9xl: 8rem;
+    --text-9xl--line-height: 1;
+    --text-9xl--letter-spacing: -0.04em;
+
+    /* ------------------------------------------------------------------
+     * Radius
+     * ---------------------------------------------------------------- */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+    --radius-3xl: 2rem;
+    --radius-full: 9999px;
+
+    /* ------------------------------------------------------------------
+     * Shadows — soft, warm-tinted (ink at low alpha), never pure black.
+     * rgb(22 22 26 / x) = ink (#16161A) at various low opacities.
+     * ---------------------------------------------------------------- */
+    --shadow-sm: 0 1px 2px 0 rgb(22 22 26 / 0.05);
+    --shadow-md: 0 4px 8px -2px rgb(22 22 26 / 0.08), 0 2px 4px -2px rgb(22 22 26 / 0.05);
+    --shadow-lg: 0 12px 24px -4px rgb(22 22 26 / 0.10), 0 4px 8px -4px rgb(22 22 26 / 0.06);
+    --shadow-xl: 0 24px 48px -8px rgb(22 22 26 / 0.14), 0 8px 16px -8px rgb(22 22 26 / 0.08);
+
+    /* ------------------------------------------------------------------
+     * Spacing — base unit 4px. Every padding/margin/gap utility is a
+     * multiple of this. admin.css overrides this single value for a
+     * denser grid instead of redefining the whole spacing scale.
+     * ---------------------------------------------------------------- */
+    --spacing: 0.25rem;
+
+    /* ------------------------------------------------------------------
+     * Transitions
+     * ---------------------------------------------------------------- */
+    --transition-fast: 150ms;
+    --transition-base: 200ms;
+    --transition-slow: 350ms;
+    /* ease-out-expo-ish — smooth, slightly snappy tail, good default for hover */
+    --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* ------------------------------------------------------------------
+     * Container
+     * ---------------------------------------------------------------- */
+    --container-max-width: 80rem;
+    --container-padding: 1rem;
+    --container-padding-md: 2rem;
+    --container-padding-lg: 3rem;
+
+    /* ------------------------------------------------------------------
+     * Z-index — named scale so nothing reaches for an arbitrary z-[9999]
+     * ---------------------------------------------------------------- */
+    --z-dropdown: 1000;
+    --z-sticky: 1100;
+    --z-drawer: 1200;
+    --z-modal: 1300;
+    --z-toast: 1400;
+}
+
+/**
+ * .container isn't purely token-driven (needs a media-query-based fluid
+ * padding), so it's a small utility here rather than an @theme value.
+ */
+@utility container {
+    max-width: var(--container-max-width);
+    margin-inline: auto;
+    padding-inline: var(--container-padding);
+
+    @media (width >= 48rem) {
+        padding-inline: var(--container-padding-md);
+    }
+
+    @media (width >= 64rem) {
+        padding-inline: var(--container-padding-lg);
+    }
+}
