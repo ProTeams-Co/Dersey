@@ -1,0 +1,120 @@
+/**
+ * Self-hosted Latin fonts: Clash Display (headings) + Satoshi (body).
+ * Storefront-only — never imported by admin.css (see the comment there).
+ *
+ * These files are SUBSETTED (scripts/subset-fonts.sh) from the full
+ * originals in resources/fonts/_source/ — kept to Latin + Latin-1
+ * Supplement + general punctuation only, nothing beyond what the storefront
+ * actually renders. Re-run the script (never hand-edit the woff2 files) if
+ * the required glyph set ever changes.
+ *
+ * ascent-override / descent-override / size-adjust are computed from each
+ * font's own OS/2 and head tables (unaffected by subsetting — these are
+ * whole-font vertical metrics, not per-glyph), normalized against a ~0.716
+ * cap-height/unitsPerEm ratio (Arial/system-ui-like) to minimize layout
+ * shift when the real font replaces the fallback.
+ *
+ * unicode-range matches the subsetted cmap exactly (re-verified by
+ * decompressing the woff2 and reading its table after subsetting) — an
+ * Arabic-only page never triggers a download of these.
+ */
+
+@font-face {
+    font-family: 'Clash Display';
+    src: url('../fonts/clash-display/clash-display-400.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F;
+    ascent-override: 89%;
+    descent-override: 25%;
+    line-gap-override: 9%;
+    size-adjust: 106.87%;
+}
+
+@font-face {
+    font-family: 'Clash Display';
+    src: url('../fonts/clash-display/clash-display-500.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F;
+    ascent-override: 89%;
+    descent-override: 25%;
+    line-gap-override: 9%;
+    size-adjust: 106.87%;
+}
+
+@font-face {
+    font-family: 'Clash Display';
+    src: url('../fonts/clash-display/clash-display-600.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F;
+    ascent-override: 89%;
+    descent-override: 25%;
+    line-gap-override: 9%;
+    size-adjust: 106.87%;
+}
+
+@font-face {
+    font-family: 'Clash Display';
+    src: url('../fonts/clash-display/clash-display-700.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F;
+    ascent-override: 89%;
+    descent-override: 25%;
+    line-gap-override: 9%;
+    size-adjust: 106.87%;
+}
+
+@font-face {
+    font-family: 'Satoshi';
+    src: url('../fonts/satoshi/satoshi-400.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F;
+    ascent-override: 101%;
+    descent-override: 24%;
+    line-gap-override: 10%;
+    size-adjust: 100%;
+}
+
+@font-face {
+    font-family: 'Satoshi';
+    src: url('../fonts/satoshi/satoshi-500.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F;
+    ascent-override: 101%;
+    descent-override: 24%;
+    line-gap-override: 10%;
+    size-adjust: 100%;
+}
+
+/**
+ * Satoshi ships 400/500/700 only (Fontshare's own weight set — no native
+ * 600/Semibold). No 600 face is registered here on purpose: the CSS font
+ * matching algorithm already does the right thing for an unmatched
+ * font-weight — it resolves to the nearest heavier declared weight (700),
+ * not a synthetic/faux bold. Registering a fake 600 pointing at the 500
+ * file would tell the browser something false about the font. Body text
+ * (Satoshi) is restricted to 400/500/700 — see CLAUDE.md.
+ */
+@font-face {
+    font-family: 'Satoshi';
+    src: url('../fonts/satoshi/satoshi-700.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+2000-206F;
+    ascent-override: 101%;
+    descent-override: 24%;
+    line-gap-override: 10%;
+    size-adjust: 100%;
+}
