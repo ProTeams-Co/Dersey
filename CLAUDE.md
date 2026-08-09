@@ -64,18 +64,46 @@ Stack: Laravel 12 · PHP 8.2+ · MySQL 8 (`utf8mb4_unicode_ci`) · Redis · Tail
 
 - **Logical properties فقط**: `ps-`/`pe-`/`ms-`/`me-`/`start-`/`end-`. ممنوع `left`/`right` في أي مكان — المشروع بلغتين (ar/en) وده بيكسر الـ RTL.
 
-## 8. قواعد الترجمة
+## 8. قواعد الخطوط
+
+- الخطوط self-hosted فقط — ممنوع أي CDN خارجي (Google Fonts أو غيره).
+- أي خط جديد لازم يعدّي `scripts/subset-fonts.sh` قبل ما يدخل `resources/fonts/`.
+- الأصول الكاملة غير المُصغّرة في `resources/fonts/_source/` — متجاهلة من git لأنها build inputs
+  حجمها ~415KB والسكريبت بيعيد توليد المُصغّرة منها. مصادر التحميل:
+  - **Clash Display** · **Satoshi** → Fontshare (fontshare.com) — مجاني للاستخدام التجاري
+  - **Alexandria** · **IBM Plex Sans Arabic** → Google Fonts — رخصة OFL
+  لإضافة وزن جديد: نزّل الأصل في `_source/`، شغّل السكريبت، وضيف `@font-face` في الـ partial المناسب.
+- **`pyftsubset`** (من حزمة `fonttools`) لازم يكون منصّب لتشغيل سكريبت الخطوط —
+  ثبّت بـ: `pip install fonttools brotli`
+  (`brotli` مطلوبة لإخراج `woff2` وبتفشل بصمت من غيرها)
+- **Satoshi:** أوزان 400 · 500 · 700 فقط — مفيش 600 حقيقي في الخط، والمتصفح بيرجع لـ 700 تلقائيًا عبر CSS font matching.
+- `unicode-range` إلزامي في كل `@font-face` — يفصل العربي عن اللاتيني عشان صفحة بلغة واحدة ما تحمّلش خط اللغة التانية.
+
+## 9. قواعد الألوان
+
+- ممنوع نهائيًا كتابة قيمة hex مباشرة في أي ملف (Blade، CSS، JS) — كل الألوان من tokens `resources/css/theme.css` بس.
+- ممنوع تعديل أو "تحسين" أي قيمة لون موجودة — الجدول الحالي ناتج 6 جولات مراجعة (توليد OKLCH، gamut mapping، تباين WCAG، تحقق CIEDE2000).
+- `--color-neutral-950` (ink) قيمة مستقلة مقصودة، مش متولّدة من باقي المقياس — مش خطأ، ممنوع "تصحيحها".
+- أي خلفية بلون دلالي (`bg-primary`, `bg-accent`, إلخ) لازم يترفق بـ `-foreground` المقابل (`text-primary-foreground`) — بعض الألوان (accent, warning) نصها الصحيح `ink` مش أبيض.
+- حقول الإدخال والعناصر التفاعلية تستخدم `border-interactive` — ممنوع `border-line` (اللي هو للفواصل الزخرفية بس، تباينه أقل من 3:1).
+
+## 10. قواعد الـ preload
+
+- الـ preload مشروط بلغة الصفحة الفعلية (عبر الـ locale في الرابط بعد Batch 1.3).
+- ممنوع preload لخطوط عربي ولاتيني مع بعض في نفس الصفحة — الزائر بيستخدم لغة واحدة بس.
+
+## 11. قواعد الترجمة
 
 - مفيش نص مكتوب مباشرة (hardcoded) في أي Blade view — كل نص من ملفات الترجمة (`resources/lang/ar`, `resources/lang/en`).
 - لوحة التحكم عربي فقط، لكن لازم برضه تستخدم ملفات ترجمة (مش نص مباشر) عشان سهولة التعديل والمراجعة.
 
-## 9. قواعد التسمية
+## 12. قواعد التسمية
 
 - جداول الداتابيز: جمع (`products`, `order_items`).
 - الموديلات: مفرد (`Product`, `OrderItem`).
 - الـ routes: kebab-case (`/best-sellers`, `/order-confirmation`).
 
-## 10. بنية المجلدات
+## 13. بنية المجلدات
 
 ```
 app/
