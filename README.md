@@ -65,6 +65,20 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 | Single-vendor B2C | One seller, one currency (EGP), final sale — no multi-vendor or returns/exchange workflow in scope |
 | No JS framework except jQuery | All interactivity and Ajax go through jQuery; every other JS library in use (GSAP, Swiper, etc.) is a vanilla-JS utility, never a reactive framework |
 
+## Internationalization
+
+- `/ar` and `/en` are both prefixed — there is no unprefixed default locale. The bare `/` 302-redirects (never 301, since the destination depends on `Accept-Language`/cookie state, and a permanently cached 301 would trap a visitor on the wrong locale) to the visitor's resolved locale.
+- RTL and LTR share a single stylesheet — CSS uses logical properties (`ps-`/`pe-`/`ms-`/`me-`/`start-`/`end-`) exclusively, never `left`/`right`.
+- `hreflang` alternates, `x-default` (always the Arabic URL), and an absolute `canonical` are generated automatically per page by `SeoService` — not hand-written per view.
+- `/admin` sits entirely outside the locale system — fixed Arabic, no `/ar`/`/en` prefix, no locale middleware.
+
+## Design System
+
+- 4 self-hosted webfonts (Clash Display, Satoshi, Alexandria, IBM Plex Sans Arabic), subsetted per-glyph-set with `pyftsubset`: **653KB → 238KB** across the weights actually shipped.
+- Colors are OKLCH tokens (`resources/css/theme.css`), verified against WCAG AA contrast — no hardcoded hex anywhere in the codebase.
+- Font preloading is locale-conditional: an Arabic page preloads only the Arabic faces, an English page only the Latin faces — never both.
+- Production CSS bundles (`npm run build`): `app.css` 47.3 kB (10.7 kB gzip), `admin.css` 45.3 kB (10.5 kB gzip).
+
 ## ⚠️ Engineering Constraints
 
 These are hard constraints, not preferences:
@@ -87,6 +101,7 @@ See [CLAUDE.md](CLAUDE.md) for the full set of project conventions.
 - Redis
 - Node 20+
 - Composer 2
+- `pyftsubset` (`pip install fonttools brotli`) — only needed to run `scripts/subset-fonts.sh` when adding or changing a font weight; not required for day-to-day development
 
 ### Installation
 
@@ -127,15 +142,22 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Phase | Status |
 |---|---|
 | Phase 1 — Project & Infrastructure Foundation (Batch 1.1) | ✅ Complete |
+| Phase 1 — Design System & Fonts (Batch 1.2) | ✅ Complete |
+| Phase 1 — Internationalization (Batch 1.3) | ✅ Complete |
+| Phase 1 — remaining batches | Planned |
 | Phase 2+ | Planned |
+
+Current test suite: **29 tests, 62 assertions** passing (`php artisan test`).
 
 ## Known Issues / Environment Notes
 
 - **PHP 8.2.12 locally** — this is the minimum version Laravel 12 accepts, but **production must run PHP 8.3+**.
 - **Local MySQL is actually MariaDB** — the local XAMPP install reports `MariaDB 10.4.32`, not MySQL 8. It works via the same `mysql` driver, but don't assume MySQL-8-only SQL features work locally without checking against a real MySQL 8 instance.
 - **Horizon does not run on Windows** — it requires the `ext-pcntl` and `ext-posix` PHP extensions, which don't exist in Windows PHP builds. Locally, use `php artisan queue:work`; Horizon is for the VPS only.
-- **Laravel Pulse was removed** — it forces `livewire/livewire` as a hard dependency, which directly conflicts with the "no Livewire" constraint. Monitoring currently relies on **Sentry only**; an alternative dashboard is under review.
+- **Laravel Pulse was removed** — it forces `livewire/livewire` as a hard dependency, which directly conflicts with the "no Livewire" constraint. Monitoring currently relies on **Sentry only**; the Pulse decision is deferred to Phase 8.
 - **`FILESYSTEM_DISK=local`** currently — this switches to `media` (Cloudflare R2) at deploy time; the storage layer is written against the same disk interface either way.
+- **`/admin` has a temporary ping route** (`TODO(3.0)`) proving it sits outside the locale system — it returns a bare 200 with no real admin UI yet, and is replaced by the actual admin routes in Batch 3.0.
+- **`resources/fonts/_source/` is not in the repo** — it's the build input for `scripts/subset-fonts.sh` (gitignored, ~1.2MB of full font families). Source downloads: Clash Display and Satoshi from Fontshare, Alexandria and IBM Plex Sans Arabic from Google Fonts.
 
 ## Documentation
 
