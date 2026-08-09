@@ -97,13 +97,26 @@ Stack: Laravel 12 · PHP 8.2+ · MySQL 8 (`utf8mb4_unicode_ci`) · Redis · Tail
 - مفيش نص مكتوب مباشرة (hardcoded) في أي Blade view — كل نص من ملفات الترجمة (`resources/lang/ar`, `resources/lang/en`).
 - لوحة التحكم عربي فقط، لكن لازم برضه تستخدم ملفات ترجمة (مش نص مباشر) عشان سهولة التعديل والمراجعة.
 
-## 12. قواعد التسمية
+## 12. قواعد التدويل (i18n)
+
+- بنية الروابط: **الاتنين بـ prefix** — `/ar/...` و `/en/...`، مفيش لغة من غير prefix.
+- اللغة الافتراضية `ar`. الجذر `/` بيعمل redirect **302** (مش 301) — الوجهة بتتغيّر حسب `Accept-Language`/الكوكي، والـ 301 بيتكاش عند الزائر بشكل دائم وبيكسر التبديل بين اللغتين.
+- `x-default` (hreflang) بيشاور دايمًا على النسخة العربية.
+- `locale` مش معروف (`/xx/...`) → **404** — ممنوع أي redirect (بيعمل soft-404 والـ crawler بيفهر روابط وهمية).
+- `/admin` **بره نظام الـ locale تمامًا** — عربي ثابت، مفيش `/ar/admin` ولا `/en/admin`.
+- الـ `canonical` لازم يكون **مطلق** وبالـ locale الحالي — canonical لنسخة بلغة تانية بيحذف صفحات كاملة من الفهرس.
+- مفاتيح الترجمة إنجليزي وصفي (`common.add_to_cart`) — ممنوع اختصارات زي `btn1`.
+- الجمع العربي بـ **6 صيغ** (صفر/مفرد/مثنى/قليل/كثير/غيره) عبر `trans_choice` بمدى واضح — مش صيغتين بس.
+- **الأرقام الغربية (`0123456789`) في اللغتين**، مش هندية — أنسب لمتجر مصري رقمي، وبيقلل الاحتكاك البصري وقت تبديل اللغة.
+- كل مفتاح ترجمة في `ar` لازم يكون له مقابل في `en` والعكس — متحقَّق تلقائيًا باختبار عبر [`App\Support\Lang\TranslationParityChecker`](app/Support/Lang/TranslationParityChecker.php).
+
+## 13. قواعد التسمية
 
 - جداول الداتابيز: جمع (`products`, `order_items`).
 - الموديلات: مفرد (`Product`, `OrderItem`).
 - الـ routes: kebab-case (`/best-sellers`, `/order-confirmation`).
 
-## 13. بنية المجلدات
+## 14. بنية المجلدات
 
 ```
 app/
@@ -150,4 +163,5 @@ routes/
 - Branch أساسي: `main`. Branch تطوير: `dev`.
 - صيغة البرانشات: `abdallah/feature/branch-name`.
 - صيغة الـ commits: `type: description` (`feat`, `fix`, `chore`, `refactor`, `style`, `docs`) — commit منفصل لكل وحدة منطقية.
+- رسائل الـ commit لازم تتبع `type: description`. الريبو فيه commit واحدة قديمة (`8721e21 remaining files`) من Batch 1.1 مخالفة للقاعدة — متروكة عمدًا (إعادة كتابة التاريخ مخاطرة أكبر من الفايدة) ومش سابقة يُقاس عليها.
 - `pint.json` بمعيار `laravel`. شغّل `vendor/bin/pint` قبل أي commit.
