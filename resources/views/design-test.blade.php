@@ -13,6 +13,25 @@
                 <div>
                     <h1 class="text-3xl">Design Tokens — Batch 1.2</h1>
                     <p class="text-muted text-sm mt-1">Temporary verification page — removed in Batch 1.6.</p>
+
+                    {{--
+                        TODO(1.6): hardcoded English text below (alt attributes,
+                        copyright line, credit) — normally forbidden (CLAUDE.md
+                        section 11), accepted here only because this whole page
+                        is temporary and is deleted in this same batch. Do not
+                        copy this pattern into any page that survives past 1.6.
+                    --}}
+                    <div class="mt-4 flex items-center gap-4">
+                        <img src="{{ asset('assets/logos/logo-green.svg') }}" alt="Dersey" width="50" height="32" class="h-8 w-auto">
+                        <span class="text-muted text-lg" aria-hidden="true">&times;</span>
+                        <img src="{{ asset('assets/logos/logo-proteamsco-black.png') }}" alt="ProTeamsCo" width="102" height="32" class="h-8 w-auto">
+                    </div>
+
+                    <p class="text-muted text-xs mt-3">
+                        &copy; {{ date('Y') }} ProTeamsCo. All rights reserved.<br>
+                        Developed by
+                        <a href="https://github.com/Eng-AbdallahEmad" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-ink">Abdallah Emad Khalifa</a>.
+                    </p>
                 </div>
                 <nav class="flex gap-3 text-sm">
                     <a href="?dir=rtl" class="px-3 py-1.5 rounded-md border border-border-interactive">RTL</a>
