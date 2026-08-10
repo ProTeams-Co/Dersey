@@ -67,9 +67,4 @@ return [
         'github_label' => 'GitHub profile',
     ],
 
-    'footer' => [
-        'logo_alt' => 'Pro Teams Co.',
-        'copyright' => '© :year Pro Teams Co. (PTC)',
-    ],
-
 ];
