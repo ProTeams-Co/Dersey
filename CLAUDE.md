@@ -86,6 +86,8 @@ Stack: Laravel 12 · PHP 8.2+ · MySQL 8 (`utf8mb4_unicode_ci`) · Redis · Tail
 - `--color-neutral-950` (ink) قيمة مستقلة مقصودة، مش متولّدة من باقي المقياس — مش خطأ، ممنوع "تصحيحها".
 - أي خلفية بلون دلالي (`bg-primary`, `bg-accent`, إلخ) لازم يترفق بـ `-foreground` المقابل (`text-primary-foreground`) — بعض الألوان (accent, warning) نصها الصحيح `ink` مش أبيض.
 - حقول الإدخال والعناصر التفاعلية تستخدم `border-interactive` — ممنوع `border-line` (اللي هو للفواصل الزخرفية بس، تباينه أقل من 3:1).
+- أسماء الـ tokens في `theme.css` لازم تتبع namespaces بتاعة Tailwind v4 (`--color-*`, `--duration-*`, `--z-index-*`, `--ease-*`) — الاسم الدلالي لوحده مش كفاية، لو الـ namespace غلط الـ utility مش بتتولّد أصلًا والغلط بيعدي صامت. اتحقق دايمًا بفحص الـ CSS المولَّد فعليًا (`npm run build` + grep)، مش بالافتراض.
+- ألوان `DEFAULT` الدلالية (`--color-primary`, `--color-accent`, `--color-success`, `--color-warning`, `--color-danger`) لازم تتكتب كقيمة hex مباشرة، مش `var(--color-{name}-{anchor})` — Tailwind محتاج يحسب قيمة اللون statically عشان يولّد utilities الشفافية (`bg-primary/10`)؛ الإحالة عبر `var()` بتخليها تفشل تتولّد بصمت. القيمة لازم تفضل مطابقة لدرجة الـ anchor بالحرف.
 
 ## 10. قواعد الـ preload
 
@@ -110,7 +112,16 @@ Stack: Laravel 12 · PHP 8.2+ · MySQL 8 (`utf8mb4_unicode_ci`) · Redis · Tail
 - **الأرقام الغربية (`0123456789`) في اللغتين**، مش هندية — أنسب لمتجر مصري رقمي، وبيقلل الاحتكاك البصري وقت تبديل اللغة.
 - كل مفتاح ترجمة في `ar` لازم يكون له مقابل في `en` والعكس — متحقَّق تلقائيًا باختبار عبر [`App\Support\Lang\TranslationParityChecker`](app/Support/Lang/TranslationParityChecker.php).
 
-## 13. قواعد التسمية
+## 13. قواعد الـ JS و Ajax
+
+- [`App\Support\Lang`](app/Support/Lang) مالوش علاقة بالقسم ده — الملف ده عن `resources/js` بس.
+- `core/ajax.js` هو النقطة الوحيدة لأي طلب Ajax في المشروع — jQuery فقط، مفيش `fetch()` ولا `axios` (اتشالت من `package.json` في Batch 1.4 بعد ما `bootstrap.js` القديم اتشال).
+- `GET /ajax/csrf-token` — endpoint دائم (مش مؤقت، مش TODO)، بيرجّع CSRF token جديد بعد استجابة 419 عشان `core/ajax.js` يعيد المحاولة مرة واحدة. محمي بـ `throttle:10,1` — من غير CSRF بتاعه (GET) فمحتاج rate limit مستقل يمنع استنزافه.
+- المكتبات التقيلة (GSAP/Lenis) لازم تتحمّل بـ **dynamic import بعد `window.load`**، مش جوه الـ bundle الأساسي — وتتجنّب التحميل خالص (مش بس التجاهل بعد التحميل) لو `prefers-reduced-motion: reduce`. `Dersey.motion.enabled` نفسه لازم يتحسب فورًا (قراءة `matchMedia` مباشرة) من غير ما يستنى تحميل المكتبة.
+- **بق `@json` في Blade:** الـ arrays المعقّدة (متداخلة + فيها استدعاء دوال زي `route()`) لازم تتبني كمتغيّر PHP الأول (`@php $data = [...]; @endphp`) وبعدين `@json($data)` — استدعاء `@json([...])` مباشر بتعبير متداخل بيتقطع عند أول قوس إغلاق `)` يلاقيه (اتكشف في Batch 1.3 مع `window.Dersey`). كمان: تجنّب كتابة `@directive(` بصيغتها الحرفية جوه أي Blade comment (`{{-- --}}`) — بيلخبط الـ compiler ويسرّب كود PHP لناتج الصفحة.
+- أي `<script>` inline في Blade بيستخدم jQuery أو `window.Dersey` لازم يكون `type="module"`. الـ bundle بيتحمّل بـ `defer` ومش بيكون جاهز وقت تنفيذ السكريبتات العادية.
+
+## 14. قواعد التسمية
 
 - جداول الداتابيز: جمع (`products`, `order_items`).
 - الموديلات: مفرد (`Product`, `OrderItem`).
@@ -143,9 +154,9 @@ resources/
 ├── css/{app.css,admin.css}
 ├── js/
 │   ├── app.js / admin.js
-│   ├── core/                  # ajax.js, toast.js, loader.js (jQuery)
+│   ├── core/                  # ajax.js, toast.js, loader.js, form.js (jQuery)
 │   ├── modules/
-│   └── admin/                 # table.js, form.js, media.js, editor.js
+│   └── admin/                 # table.js, media.js, editor.js
 ├── fonts/
 ├── views/{layouts,components,front,admin,emails}/
 └── lang/{ar,en}/
