@@ -76,8 +76,17 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 
 - 4 self-hosted webfonts (Clash Display, Satoshi, Alexandria, IBM Plex Sans Arabic), subsetted per-glyph-set with `pyftsubset`: **653KB → 238KB** across the weights actually shipped.
 - Colors are OKLCH tokens (`resources/css/theme.css`), verified against WCAG AA contrast — no hardcoded hex anywhere in the codebase.
+- Token names must match the namespace Tailwind v4 actually generates utilities from (`--color-*`, `--duration-*`, `--z-index-*`, `--width-*`), not just read as semantically correct — a mismatched namespace (e.g. `--z-*` instead of `--z-index-*`) silently produces no utility at all, verified by building and grepping compiled output rather than assumed.
 - Font preloading is locale-conditional: an Arabic page preloads only the Arabic faces, an English page only the Latin faces — never both.
-- Production CSS bundles (`npm run build`): `app.css` 47.3 kB (10.7 kB gzip), `admin.css` 45.3 kB (10.5 kB gzip).
+- Production CSS bundles (`npm run build`): `app.css` 42.3 kB (8.0 kB gzip), `admin.css` 40.4 kB (7.8 kB gzip).
+
+## Frontend Architecture
+
+- **jQuery only** — no JS framework (Vue/React/Alpine/Livewire) anywhere in the storefront or admin bundles. Every interactive piece is a small, selectively-initialized module in `resources/js/modules/`, wired up only when its root element is present on the page.
+- **Unified Ajax layer** (`core/ajax.js`) — every request in the app goes through one wrapper: automatic CSRF-token refresh-and-retry on a 419, consistent handling for 422/429/500, and duplicate in-flight requests sharing a key cancel each other (`.abort()`) instead of racing.
+- **Layered overlay manager** (`core/modal.js`) — modals, drawers, and the search overlay share one open/close stack instead of each reimplementing focus-trap/scroll-lock logic: `Escape` closes only the top-most layer, and page-scroll lock is reference-counted so it's released only once every open layer has closed, not on the first one.
+- **Motion is deferred, not skipped** — GSAP and Lenis are dynamically imported after `window.load`, and only when `prefers-reduced-motion` is not set; under reduced motion, that bundle is never requested at all.
+- **Bundle sizes** (`npm run build`, gzip): the initial JS payload (jQuery, the Ajax/overlay/toast core, and every storefront interface module — header, mega menu, mobile nav, cart drawer, search) is **~37.3 kB**; the deferred motion bundle (GSAP + Lenis) is **~50.3 kB**, fetched only when actually needed.
 
 ## ⚠️ Engineering Constraints
 
@@ -144,10 +153,12 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Phase 1 — Project & Infrastructure Foundation (Batch 1.1) | ✅ Complete |
 | Phase 1 — Design System & Fonts (Batch 1.2) | ✅ Complete |
 | Phase 1 — Internationalization (Batch 1.3) | ✅ Complete |
+| Phase 1 — JavaScript & Ajax Infrastructure (Batch 1.4) | ✅ Complete |
+| Phase 1 — Storefront Interface Shell (Batch 1.5) | ✅ Complete |
 | Phase 1 — remaining batches | Planned |
 | Phase 2+ | Planned |
 
-Current test suite: **29 tests, 62 assertions** passing (`php artisan test`).
+Current test suite: **30 tests, 78 assertions** passing (`php artisan test`). Repository history: **62 commits**.
 
 ## Known Issues / Environment Notes
 
@@ -158,6 +169,9 @@ Current test suite: **29 tests, 62 assertions** passing (`php artisan test`).
 - **`FILESYSTEM_DISK=local`** currently — this switches to `media` (Cloudflare R2) at deploy time; the storage layer is written against the same disk interface either way.
 - **`/admin` has a temporary ping route** (`TODO(3.0)`) proving it sits outside the locale system — it returns a bare 200 with no real admin UI yet, and is replaced by the actual admin routes in Batch 3.0.
 - **`resources/fonts/_source/` is not in the repo** — it's the build input for `scripts/subset-fonts.sh` (gitignored, ~1.2MB of full font families). Source downloads: Clash Display and Satoshi from Fontshare, Alexandria and IBM Plex Sans Arabic from Google Fonts.
+- **`/design-test` and `/js-test` are temporary pages** (`TODO(1.6)`) verifying the design-token and JS-infrastructure batches respectively — both views and their routes are removed in Batch 1.6.
+- **Footer payment-method badges are plain text** (Visa/Mastercard/meeza/Fawry), not real logos — no payment-network brand assets exist in the project yet.
+- **The mobile navigation drawer has no cart entry point of its own** — its backdrop correctly blocks pointer events to whatever is behind it, including the header's cart icon, so once the cart is functional the drawer will need a direct link to it.
 
 ## Documentation
 
