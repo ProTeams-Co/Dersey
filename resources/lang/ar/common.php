@@ -24,6 +24,7 @@ return [
     'loading' => 'جارٍ التحميل…',
     'back' => 'رجوع',
     'continue' => 'متابعة',
+    'remove' => 'إزالة',
     'currency_symbol' => 'ج.م',
     'language_switcher' => 'مبدّل اللغة',
 

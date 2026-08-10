@@ -24,6 +24,7 @@ return [
     'loading' => 'Loading…',
     'back' => 'Back',
     'continue' => 'Continue',
+    'remove' => 'Remove',
     'currency_symbol' => 'EGP',
     'language_switcher' => 'Language switcher',
 
