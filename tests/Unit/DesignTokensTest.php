@@ -70,3 +70,35 @@ it('keeps the focus ring color visible against canvas and surface', function () 
     expect(wcagContrastRatio(PRIMARY_800, CANVAS))->toBeGreaterThanOrEqual(3.0);
     expect(wcagContrastRatio(PRIMARY_800, SURFACE))->toBeGreaterThanOrEqual(3.0);
 });
+
+it('names theme.css tokens with namespaces Tailwind v4 actually generates utilities from', function () {
+    // A semantically-correct name in the wrong namespace compiles with zero
+    // errors and silently produces no utility at all — confirmed empirically
+    // by building and grepping the output, not assumed. --transition-* and
+    // bare --z-* were the wrong namespaces (no duration-*/z-* utilities came
+    // out); --duration-* and --z-index-* are the ones Tailwind recognizes.
+    // Plain filesystem path, not resource_path() — this file runs without
+    // the framework booted (no TestCase), matching the rest of this suite.
+    $theme = file_get_contents(dirname(__DIR__, 2).'/resources/css/theme.css');
+
+    expect($theme)->toContain('--duration-fast')
+        ->toContain('--duration-base')
+        ->toContain('--duration-slow')
+        ->not->toContain('--transition-fast')
+        ->not->toContain('--transition-base')
+        ->not->toContain('--transition-slow');
+
+    expect($theme)->toContain('--z-index-dropdown')
+        ->toContain('--z-index-sticky')
+        ->toContain('--z-index-drawer')
+        ->toContain('--z-index-modal')
+        ->toContain('--z-index-toast');
+
+    // The z-index scale itself must stay unchanged (1000-1400) — only the
+    // namespace prefix was ever supposed to move.
+    expect($theme)->toContain('--z-index-dropdown: 1000')
+        ->toContain('--z-index-sticky: 1100')
+        ->toContain('--z-index-drawer: 1200')
+        ->toContain('--z-index-modal: 1300')
+        ->toContain('--z-index-toast: 1400');
+});
