@@ -30,4 +30,10 @@ function init() {
     gsap.ticker.lagSmoothing(0);
 }
 
-export default { init };
+/**
+ * gsap/ScrollTrigger are exported alongside init so a module that already
+ * holds this same (already dynamically-imported, already initialized)
+ * module instance — see modules/header.js — can register its own
+ * ScrollTrigger without importing gsap a second time.
+ */
+export default { init, gsap, ScrollTrigger };

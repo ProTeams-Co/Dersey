@@ -62,7 +62,21 @@
         @stack('head')
     </head>
     <body>
+        <x-layout.header />
+
         @yield('content')
+
+        <x-layout.footer />
+
+        {{--
+            Mounted once, globally, here rather than per-page: drawers/overlay
+            are fixed-position and triggered from the header on every page, so
+            there is exactly one instance of each in the DOM regardless of
+            which view is rendering into @yield('content') above.
+        --}}
+        <x-layout.mobile-nav />
+        <x-layout.cart-drawer />
+        <x-layout.search-overlay />
 
         @stack('scripts')
     </body>

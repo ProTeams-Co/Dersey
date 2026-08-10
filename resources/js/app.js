@@ -27,7 +27,13 @@ window.Dersey.motion = { enabled: !window.matchMedia('(prefers-reduced-motion: r
  * default.
  */
 const modules = {
-    // cart: () => import('./modules/cart'),
+    // Keys are kebab-case on purpose - they're matched directly against
+    // each element's data-module="..." value below, not camelCased.
+    header: () => import('./modules/header'),
+    'mega-menu': () => import('./modules/mega-menu'),
+    'mobile-nav': () => import('./modules/mobile-nav'),
+    'cart-drawer': () => import('./modules/cart-drawer'),
+    search: () => import('./modules/search'),
 };
 
 $(function () {
@@ -53,5 +59,11 @@ $(function () {
 $(window).on('load', function () {
     if (!window.Dersey.motion.enabled) return;
 
-    import('./core/motion').then((module) => module.default.init());
+    import('./core/motion').then((module) => {
+        module.default.init();
+        // Lets an already-loaded module (e.g. modules/header.js) register its
+        // own ScrollTrigger off the same gsap/ScrollTrigger instance instead
+        // of importing motion.js a second time - see core/motion.js.
+        Events.emit('motion:ready', module.default);
+    });
 });
