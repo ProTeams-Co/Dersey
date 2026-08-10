@@ -7,6 +7,8 @@
 
         <title>{{ $title ?? config('app.name') }}</title>
 
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+
         {!! $seo->tags() !!}
 
         @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
@@ -25,7 +27,36 @@
                 <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ \Illuminate\Support\Facades\Vite::asset('resources/fonts/satoshi/satoshi-700.woff2') }}">
             @endif
 
-            @vite(['resources/css/app.css'])
+            {{--
+                The json Blade helper, never string concatenation, is the
+                only XSS-safe way to embed server data inside an inline
+                script tag. Injected before the vite include on purpose:
+                app.js reads window.Dersey at load time, so it must already
+                exist.
+
+                The array is built as a plain variable first, not inline —
+                Blade's directive-argument parser does not reliably balance
+                nested brackets and parens in a complex inline expression,
+                and silently truncates at the first closing paren it meets
+                (the route helper's, here) instead of the real end. A plain
+                variable has no nesting for it to get wrong. Do not inline
+                this back — see this same note in layouts/admin.blade.php.
+            --}}
+            @php
+                $derseyData = [
+                    'locale' => app()->getLocale(),
+                    'dir' => LaravelLocalization::getCurrentLocaleDirection(),
+                    'routes' => [
+                        'csrfToken' => route('ajax.csrf-token'),
+                    ],
+                    'lang' => trans('js'),
+                ];
+            @endphp
+            <script>
+                window.Dersey = @json($derseyData);
+            </script>
+
+            @vite(['resources/css/app.css', 'resources/js/app.js'])
         @endif
 
         @stack('head')
