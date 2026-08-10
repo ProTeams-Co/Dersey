@@ -92,13 +92,18 @@ it('names theme.css tokens with namespaces Tailwind v4 actually generates utilit
         ->toContain('--z-index-sticky')
         ->toContain('--z-index-drawer')
         ->toContain('--z-index-modal')
-        ->toContain('--z-index-toast');
+        ->toContain('--z-index-toast')
+        ->toContain('--z-index-tooltip');
 
-    // The z-index scale itself must stay unchanged (1000-1400) — only the
-    // namespace prefix was ever supposed to move.
+    // dropdown..toast (1000-1400) predate this and must stay put — only the
+    // namespace prefix ever moved for those. tooltip (1500) is a real,
+    // deliberate addition on top of the scale (Batch 1.6): a tooltip must
+    // outrank every other layer, including modal/drawer, since it's always
+    // anchored to a trigger that can itself be inside one of them.
     expect($theme)->toContain('--z-index-dropdown: 1000')
         ->toContain('--z-index-sticky: 1100')
         ->toContain('--z-index-drawer: 1200')
         ->toContain('--z-index-modal: 1300')
-        ->toContain('--z-index-toast: 1400');
+        ->toContain('--z-index-toast: 1400')
+        ->toContain('--z-index-tooltip: 1500');
 });
