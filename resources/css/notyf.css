@@ -1,0 +1,21 @@
+/**
+ * Notyf ships .notyf__icon with a hardcoded margin-right (see
+ * node_modules/notyf/notyf.min.css) — a physical property with no notion of
+ * text direction. Overridden here with the logical equivalent so the icon
+ * sits on the correct side of the message in both locales — margin-right in
+ * English, margin-left in Arabic — from one rule instead of two per-locale
+ * ones. Imported right after notyf's own CSS (see core/toast.js) so it lands
+ * later in the same output file and wins the cascade at equal specificity.
+ */
+.notyf__icon {
+    /*
+     * margin-inline-end alone isn't enough: in rtl it resolves to
+     * margin-left, which is a different physical property from notyf's own
+     * margin-right — so both would apply at once (13px on each side)
+     * instead of the margin actually flipping sides. margin-inline-start
+     * resolves to margin-right in rtl, which is exactly the property that
+     * needs resetting to 0 there.
+     */
+    margin-inline-start: 0;
+    margin-inline-end: 13px;
+}
