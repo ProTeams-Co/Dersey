@@ -124,26 +124,6 @@
         <x-developer-modal />
     </section>
 
-    {{-- ============================================================
-         Footer
-    ============================================================ --}}
-    <footer class="border-t border-line bg-surface py-10">
-        <div class="container flex flex-col items-center justify-between gap-6 md:flex-row">
-            <img
-                src="{{ asset('assets/logos/logo-proteamsco-black.png') }}"
-                alt="{{ __('welcome.footer.logo_alt') }}"
-                width="102"
-                height="32"
-                class="h-8 w-auto"
-            >
-
-            <p class="text-sm text-muted">
-                {{ __('welcome.footer.copyright', ['year' => date('Y')]) }}
-            </p>
-
-            <x-locale-switcher />
-        </div>
-    </footer>
 @endsection
 
 @push('scripts')
