@@ -78,7 +78,7 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 - Colors are OKLCH tokens (`resources/css/theme.css`), verified against WCAG AA contrast — no hardcoded hex anywhere in the codebase.
 - Token names must match the namespace Tailwind v4 actually generates utilities from (`--color-*`, `--duration-*`, `--z-index-*`, `--width-*`), not just read as semantically correct — a mismatched namespace (e.g. `--z-*` instead of `--z-index-*`) silently produces no utility at all, verified by building and grepping compiled output rather than assumed.
 - Font preloading is locale-conditional: an Arabic page preloads only the Arabic faces, an English page only the Latin faces — never both.
-- Production CSS bundles (`npm run build`): `app.css` 42.3 kB (8.0 kB gzip), `admin.css` 40.4 kB (7.8 kB gzip).
+- Production CSS bundles (`npm run build`): `app.css` 52.2 kB (9.5 kB gzip), `admin.css` 50.3 kB (9.3 kB gzip) — both grew with the Batch 1.6 component library, since Tailwind's content scan isn't scoped per-bundle and any class used anywhere is available to both.
 
 ## Frontend Architecture
 
@@ -87,6 +87,13 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 - **Layered overlay manager** (`core/modal.js`) — modals, drawers, and the search overlay share one open/close stack instead of each reimplementing focus-trap/scroll-lock logic: `Escape` closes only the top-most layer, and page-scroll lock is reference-counted so it's released only once every open layer has closed, not on the first one.
 - **Motion is deferred, not skipped** — GSAP and Lenis are dynamically imported after `window.load`, and only when `prefers-reduced-motion` is not set; under reduced motion, that bundle is never requested at all.
 - **Bundle sizes** (`npm run build`, gzip): the initial JS payload (jQuery, the Ajax/overlay/toast core, and every storefront interface module — header, mega menu, mobile nav, cart drawer, search) is **~37.3 kB**; the deferred motion bundle (GSAP + Lenis) is **~50.3 kB**, fetched only when actually needed.
+
+## Component Library
+
+- 23 reusable Blade components in three groups: `resources/views/components/form/` (8 — input, textarea, select, checkbox, radio, toggle, quantity, file), `resources/views/components/ui/` (14 — button, badge, chip, alert, spinner, skeleton, tooltip, card, breadcrumb, pagination, empty-state, rating, tabs, accordion), and `product-card.blade.php` on its own (product data doesn't belong in a generic UI namespace).
+- Form components always use `border-interactive`, never `border-line`, and wire up `aria-invalid`/`aria-describedby` automatically whenever an error is passed in.
+- A permanent `/design-system` preview page shows every component in every state — local environment only, the route doesn't exist at all outside it (verified by checking `php artisan route:list` under `APP_ENV=production`, not just reading the guard condition). It sits outside the locale system like `/admin`, and its RTL/LTR toggle switches the actual locale too, not just the `dir` attribute, so each direction is tested with real matching-language content.
+- `--z-index-tooltip` (1500) sits above every other layer, including `modal`/`drawer` (1300/1200) — a tooltip is always anchored to a trigger that can itself be inside one of them.
 
 ## ⚠️ Engineering Constraints
 
@@ -155,10 +162,11 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Phase 1 — Internationalization (Batch 1.3) | ✅ Complete |
 | Phase 1 — JavaScript & Ajax Infrastructure (Batch 1.4) | ✅ Complete |
 | Phase 1 — Storefront Interface Shell (Batch 1.5) | ✅ Complete |
-| Phase 1 — remaining batches | Planned |
+| Phase 1 — Component Library (Batch 1.6) | ✅ Complete |
+| **Phase 1 — Foundation** | **✅ Complete** |
 | Phase 2+ | Planned |
 
-Current test suite: **30 tests, 78 assertions** passing (`php artisan test`). Repository history: **62 commits**.
+Current test suite: **30 tests, 80 assertions** passing (`php artisan test`). Repository history: **72 commits**.
 
 ## Known Issues / Environment Notes
 
@@ -169,9 +177,9 @@ Current test suite: **30 tests, 78 assertions** passing (`php artisan test`). Re
 - **`FILESYSTEM_DISK=local`** currently — this switches to `media` (Cloudflare R2) at deploy time; the storage layer is written against the same disk interface either way.
 - **`/admin` has a temporary ping route** (`TODO(3.0)`) proving it sits outside the locale system — it returns a bare 200 with no real admin UI yet, and is replaced by the actual admin routes in Batch 3.0.
 - **`resources/fonts/_source/` is not in the repo** — it's the build input for `scripts/subset-fonts.sh` (gitignored, ~1.2MB of full font families). Source downloads: Clash Display and Satoshi from Fontshare, Alexandria and IBM Plex Sans Arabic from Google Fonts.
-- **`/design-test` and `/js-test` are temporary pages** (`TODO(1.6)`) verifying the design-token and JS-infrastructure batches respectively — both views and their routes are removed in Batch 1.6.
 - **Footer payment-method badges are plain text** (Visa/Mastercard/meeza/Fawry), not real logos — no payment-network brand assets exist in the project yet.
 - **The mobile navigation drawer has no cart entry point of its own** — its backdrop correctly blocks pointer events to whatever is behind it, including the header's cart icon, so once the cart is functional the drawer will need a direct link to it.
+- **Product-card color swatches are placeholders** drawn from the existing semantic tokens (primary/accent/ink/...), not real per-product colors — there is no Color model yet; real swatch data needs one, planned for Phase 2.
 
 ## Documentation
 
