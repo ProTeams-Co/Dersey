@@ -38,5 +38,10 @@ foreach (array_keys(LaravelLocalization::getSupportedLocales()) as $locale) {
         Route::get('/design-test', function () {
             return view('design-test');
         })->name('design-test');
+
+        // Temporary — verifies JS infrastructure for Batch 1.4, removed in Batch 1.6.
+        Route::get('/js-test', function () {
+            return view('js-test');
+        })->name('js-test');
     });
 }
