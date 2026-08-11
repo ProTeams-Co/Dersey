@@ -10,6 +10,9 @@ use App\Support\Slug;
  * unique per (table, locale) - a slug can repeat across locales (a
  * different language's translation of the same or a different record) but
  * never within one, per this batch's UNIQUE(slug, locale) constraint.
+ *
+ * @mixin \Illuminate\Database\Eloquent\Model
+ * @method static void saving(callable $callback)
  */
 trait HasAutoSlug
 {
@@ -29,7 +32,7 @@ trait HasAutoSlug
             $base = Slug::generate($source, $translation->locale);
 
             $translation->slug = Slug::unique($base, function (string $candidate) use ($translation) {
-                return static::query()
+                return $translation->newQuery()
                     ->where('locale', $translation->locale)
                     ->where('slug', $candidate)
                     ->when(
