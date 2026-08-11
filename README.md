@@ -106,6 +106,9 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 - **Catalog is nested-set and variants-ready** — `categories` uses `kalnoy/nestedset` (root → sub-category → leaf, 3 levels deep in seed data), with attributes split by `is_variant` (size/color generate purchasable variants in a later batch; material/season are filter-only). Deleting a category with live children or products still directly attached to it is blocked outright (`CategoryHasDependentsException`, `Category::canBeDeleted()`), never silently cascaded.
 - **Real Arabic slugs** — `category_translations`/`brand_translations`/`product_translations` use `UNIQUE(slug, locale)`, not `UNIQUE(slug)`: the same slug string can exist once per language, and Arabic slugs keep native Arabic characters (`Str::slug($text, '-', null)`) instead of being transliterated to Latin, for better local SEO.
 - **Arabic FULLTEXT search** — `product_translations` has a `FULLTEXT` index on `name`/`description`, verified against real Arabic text on the local MariaDB instance; skipped automatically on SQLite (the test suite's driver has no `fullText()` support at all), so MySQL/production always gets the real index.
+- **Variants are mandatory, not optional** — every product gets at least one `ProductVariant`; stock writes go through `App\Services\Inventory\InventoryService` exclusively, guarded by both a pessimistic row lock (`lockForUpdate()`) during the transaction and an independent optimistic check (`App\Support\Traits\HasOptimisticLock`, a `version` column) — confirmed with a real two-read concurrency test, not a simulated one: a stale second write throws `StaleModelException` instead of silently losing the first write.
+- **Every stock change is a ledger entry** — `inventory_movements` records `quantity_before`/`quantity_after` for every `adjust()`/`reserve()`/`release()`/`commit()` call, no exceptions, and is never deleted (financial record).
+- **Product images are keyed to color options** — `product_images.color_value_id` links a gallery image to a specific `AttributeValue`; `ProductVariant::displayImage()` falls back from the variant's own image → its color's images → the product's single primary image.
 
 ## ⚠️ Engineering Constraints
 
@@ -181,11 +184,12 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | **Phase 1 — Foundation** | **✅ Complete** |
 | Phase 2 — Data Layer Foundation (Batch 2.1) | ✅ Complete |
 | Phase 2 — Product Catalog (Batch 2.2) | ✅ Complete |
+| Phase 2 — Variants & Inventory (Batch 2.3) | ✅ Complete |
 | Phase 2 — remaining batches | Planned |
 | **Phase 2** | **🔄 In Progress** |
 | Phase 3+ | Planned |
 
-Current test suite: **57 tests, 158 assertions** passing (`php artisan test`). Repository history: **84 commits**.
+Current test suite: **70 tests, 189 assertions** passing (`php artisan test`). Repository history: **94 commits**.
 
 ## Known Issues / Environment Notes
 
@@ -204,6 +208,8 @@ Current test suite: **57 tests, 158 assertions** passing (`php artisan test`). R
 - **`kalnoy/nestedset` defines `parent_id` as 32-bit (`unsignedInteger`) while `categories.id` is 64-bit (`unsignedBigInteger`)** — the package's own `nestedSet()` macro caused a real FK failure (`errno 150`) on `categories.parent_id`; `_lft`/`_rgt`/`parent_id` are defined by hand in the migration instead, with `parent_id` matching `id`'s width.
 - **The installed `kalnoy/nestedset` version has no `depth` column** — only `_lft`/`_rgt`, with depth computed via `->withDepth()` at query time; confirmed by reading the package source directly, not assumed from its docs.
 - **SQLite has no `fullText()` index support** — the test suite's `DB_CONNECTION` (`phpunit.xml`) is SQLite in-memory, so `product_translations`' FULLTEXT index is skipped there (`Schema::getConnection()->getDriverName() !== 'sqlite'`); MySQL/production is unaffected.
+- **`ProductVariant::available_quantity` is a computed accessor (`stock_quantity - reserved_quantity`), not a column** — it cannot be used in `WHERE`/`ORDER BY`; an "available only" SQL filter (e.g. Batch 4's category filters) needs `whereRaw('stock_quantity - reserved_quantity > 0')` instead.
+- **`InventoryService::commit()` always logs `InventoryMovementType::Out`** — it currently covers both "sold to a customer" and any future "returned from a customer" case; the distinction is meant to come from `reference_type`/`reference_id` once returns exist (Batch 2.4), not a new enum case that would change what `Out` means.
 
 ## Documentation
 
