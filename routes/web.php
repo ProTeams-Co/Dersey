@@ -9,6 +9,20 @@ use Mcamara\LaravelLocalization\Facades\LaravelLocalization;
 // own hideDefaultLocaleInURL redirect (disabled — see config/laravellocalization.php).
 Route::get('/', LocaleRedirectController::class)->name('root');
 
+// Permanent component library preview — outside the locale system entirely
+// (like /admin: no {locale} prefix, no SetLocale), and gated to the local
+// environment only so it never ships to production.
+if (app()->environment('local')) {
+    Route::get('/design-system', function () {
+        // dir=rtl/ltr also picks the matching locale, so the RTL/LTR toggle
+        // shows real Arabic/English content, not just a flipped direction
+        // with the wrong-language text sitting inside it.
+        app()->setLocale(request('dir', 'rtl') === 'ltr' ? 'en' : 'ar');
+
+        return view('design-system');
+    })->name('design-system');
+}
+
 /**
  * One group per supported locale, with a static prefix ('ar'/'en') — NOT
  * LaravelLocalization::setLocale() called bare as the prefix value. That
@@ -33,15 +47,5 @@ foreach (array_keys(LaravelLocalization::getSupportedLocales()) as $locale) {
         Route::get('/', function () {
             return view('welcome');
         })->name('home');
-
-        // Temporary — verifies fonts/tokens for Batch 1.2, removed in Batch 1.6.
-        Route::get('/design-test', function () {
-            return view('design-test');
-        })->name('design-test');
-
-        // Temporary — verifies JS infrastructure for Batch 1.4, removed in Batch 1.6.
-        Route::get('/js-test', function () {
-            return view('js-test');
-        })->name('js-test');
     });
 }
