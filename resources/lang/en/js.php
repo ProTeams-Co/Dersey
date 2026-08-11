@@ -20,5 +20,8 @@ return [
     'error_server' => 'Something went wrong on our end. Please try again.',
     'error_network' => 'Check your connection, then tap to retry.',
     'validation_failed' => 'Please check the highlighted fields.',
+    'admin_sidebar_collapse' => 'Collapse sidebar',
+    'admin_sidebar_expand' => 'Expand sidebar',
+    'admin_table_selected_count' => ':count selected',
 
 ];
