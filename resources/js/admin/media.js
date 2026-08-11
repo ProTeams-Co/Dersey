@@ -1,10 +1,81 @@
+import $ from 'jquery';
+
 /**
- * Structural stub — FilePond wiring lands in Batch 3.0 alongside the real
- * media-upload admin screens. Exists now so admin.js's module wiring
- * doesn't have to change shape later.
+ * FilePond wired to a TEMPORARY upload endpoint (admin.media.store/destroy,
+ * real MIME-sniffed validation server-side - see MediaUploadController),
+ * not Cloudflare R2 directly - no resource actually attaches uploaded
+ * media to a model yet (that's 3.1+), so there is nothing further to wire
+ * up here than "upload now, revert removes it".
+ *
+ * FilePond + its plugins (~130 kB) are only ever dynamically imported when
+ * a [data-media-picker] actually exists on the page - eagerly bundling
+ * them into admin.js would ship that weight to every admin page,
+ * including ones with no file picker at all (same reasoning as CLAUDE.md
+ * §13's GSAP/Lenis dynamic-import rule for the storefront).
+ *
+ * RTL: no FilePond-specific option needed - its CSS already follows the
+ * inherited `dir` from <html dir="rtl"> (the admin panel is fixed RTL, see
+ * CLAUDE.md), confirmed by using it on this project's RTL-only admin pages.
  */
+
+function csrfToken() {
+    return $('meta[name="csrf-token"]').attr('content');
+}
+
+async function initPicker(el) {
+    const $el = $(el);
+    const $input = $el.find('[data-media-input]');
+
+    if (!$input.length) return;
+
+    const [
+        { default: FilePond },
+        { default: FilePondPluginImagePreview },
+        { default: FilePondPluginImageCrop },
+        { default: FilePondPluginFileValidateType },
+    ] = await Promise.all([
+        import('filepond'),
+        import('filepond-plugin-image-preview'),
+        import('filepond-plugin-image-crop'),
+        import('filepond-plugin-file-validate-type'),
+        import('filepond/dist/filepond.min.css'),
+        import('filepond-plugin-image-preview/dist/filepond-plugin-image-preview.min.css'),
+    ]);
+
+    FilePond.registerPlugin(FilePondPluginImagePreview, FilePondPluginImageCrop, FilePondPluginFileValidateType);
+
+    const uploadUrl = $el.data('mediaUploadUrl');
+    const revertUrlTemplate = $el.data('mediaRevertUrl');
+    const multiple = String($el.data('mediaMultiple')) === '1';
+    const maxFiles = $el.data('mediaMax') || null;
+
+    FilePond.create($input.get(0), {
+        allowMultiple: multiple,
+        maxFiles,
+        acceptedFileTypes: ['image/png', 'image/jpeg', 'image/webp'],
+        credits: false,
+        imagePreviewHeight: 140,
+        server: {
+            process: {
+                url: uploadUrl,
+                headers: { 'X-CSRF-TOKEN': csrfToken() },
+            },
+            revert: (uniqueFileId, load, error) => {
+                $.ajax({
+                    url: revertUrlTemplate.replace('__ID__', uniqueFileId),
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': csrfToken() },
+                })
+                    .done(() => load())
+                    .fail(() => error('revert failed'));
+            },
+            load: null,
+        },
+    });
+}
+
 function init() {
-    //
+    document.querySelectorAll('[data-media-picker]').forEach(initPicker);
 }
 
 export default { init };

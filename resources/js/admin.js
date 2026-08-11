@@ -10,8 +10,10 @@ import Events from './core/events';
 
 import Table from './admin/table';
 import Form from './core/form';
+import AdminForm from './admin/form';
 import Media from './admin/media';
 import Editor from './admin/editor';
+import Layout from './admin/layout';
 
 $(function () {
     Toast.init();
@@ -20,11 +22,10 @@ $(function () {
     // No Motion.init() here — smooth scroll works against a data-dense admin
     // UI where responsiveness matters more than a storefront scroll feel.
 
+    Layout.init();
     Form.init();
+    AdminForm.init();
 
-    // table.js/media.js/editor.js are stubs until Batch 3.0 — called now so
-    // wiring them up for real later is a one-line change inside those files,
-    // not here.
     Table.init();
     Media.init();
     Editor.init();
