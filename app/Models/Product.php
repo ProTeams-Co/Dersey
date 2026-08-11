@@ -6,6 +6,7 @@ use App\Casts\MoneyCast;
 use App\Enums\Gender;
 use App\Enums\ProductStatus;
 use App\Observers\ProductObserver;
+use App\Support\Traits\HasSeo;
 use App\Support\Traits\HasTranslations;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
@@ -28,7 +30,7 @@ use InvalidArgumentException;
 class Product extends Model
 {
     /** @use HasFactory<ProductFactory> */
-    use HasFactory, HasTranslations, SoftDeletes;
+    use HasFactory, HasSeo, HasTranslations, SoftDeletes;
 
     protected $fillable = [
         'brand_id',
@@ -94,6 +96,79 @@ class Product extends Model
     public function images(): HasMany
     {
         return $this->hasMany(ProductImage::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /**
+     * TODO(4.x): the only place to change when real product show routes
+     * exist. The SEO plan calls for a flat path keyed off the category
+     * slug (/{locale}/{category-slug}/{product-slug}), not this
+     * placeholder - update the return here to match, and backfill every
+     * existing `redirects` row that was generated from the old convention
+     * (see CLAUDE.md's "التوجيهات التلقائية" note).
+     */
+    public static function seoPath(string $slug, string $locale): string
+    {
+        return "/{$locale}/products/{$slug}";
+    }
+
+    public function defaultSeoTitle(?string $locale = null): string
+    {
+        return $this->translate($locale)?->name ?? '';
+    }
+
+    public function defaultSeoDescription(?string $locale = null): ?string
+    {
+        $translation = $this->translate($locale);
+        $text = $translation?->short_description ?: $translation?->description;
+
+        return $text ? Str::limit(strip_tags($text), 160) : null;
+    }
+
+    public function defaultSeoImage(): ?string
+    {
+        return $this->primaryImage()?->path;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function schemaMarkup(?string $locale = null): array
+    {
+        $locale ??= app()->getLocale();
+        $translation = $this->translate($locale);
+        $priceMinor = $this->base_price->minor();
+
+        $schema = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Product',
+            'name' => $translation?->name,
+            'description' => $translation?->short_description ?: $translation?->description,
+            'sku' => $this->sku,
+            'image' => $this->primaryImage()?->path,
+            'offers' => [
+                '@type' => 'Offer',
+                'priceCurrency' => 'EGP',
+                'price' => sprintf('%d.%02d', intdiv($priceMinor, 100), $priceMinor % 100),
+                'availability' => $this->variants->sum('stock_quantity') > 0
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+            ],
+        ];
+
+        if ($this->reviews_count > 0) {
+            $schema['aggregateRating'] = [
+                '@type' => 'AggregateRating',
+                'ratingValue' => (string) $this->avg_rating,
+                'reviewCount' => $this->reviews_count,
+            ];
+        }
+
+        return $schema;
     }
 
     public function scopePublished(Builder $query): Builder
@@ -206,7 +281,7 @@ class Product extends Model
             return $result;
         }, [[]]);
 
-        $variants = new Collection();
+        $variants = new Collection;
 
         foreach ($combinations as $index => $combination) {
             // low_stock_threshold set explicitly, not left to the
