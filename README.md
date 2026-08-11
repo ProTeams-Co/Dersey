@@ -109,6 +109,9 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 - **Variants are mandatory, not optional** — every product gets at least one `ProductVariant`; stock writes go through `App\Services\Inventory\InventoryService` exclusively, guarded by both a pessimistic row lock (`lockForUpdate()`) during the transaction and an independent optimistic check (`App\Support\Traits\HasOptimisticLock`, a `version` column) — confirmed with a real two-read concurrency test, not a simulated one: a stale second write throws `StaleModelException` instead of silently losing the first write.
 - **Every stock change is a ledger entry** — `inventory_movements` records `quantity_before`/`quantity_after` for every `adjust()`/`reserve()`/`release()`/`commit()` call, no exceptions, and is never deleted (financial record).
 - **Product images are keyed to color options** — `product_images.color_value_id` links a gallery image to a specific `AttributeValue`; `ProductVariant::displayImage()` falls back from the variant's own image → its color's images → the product's single primary image.
+- **Orders snapshot everything, and survive the product being deleted** — `order_items.product_name`/`sku`/`unit_price`/`line_total` are copied at checkout, not read live; `product_id`/`variant_id` are `nullOnDelete` on purpose, verified by actually force-deleting a product after ordering it and confirming the order still displays correctly.
+- **Stock reservation stays consistent across a cart's whole lifecycle** — add/update/remove/merge/expiry all route through `InventoryService`, and a direct SQL sweep (`product_variants.reserved_quantity` vs. the live sum of `cart_items.quantity`) turns up zero drift after exercising every one of those paths together.
+- **Payment webhooks are deduplicated at the database, not in code** — `payment_webhooks` has `UNIQUE(transaction_id, event_type)`; Paymob's known duplicate redeliveries fail to insert a second time, rather than relying on an application-level check that could itself race.
 
 ## ⚠️ Engineering Constraints
 
@@ -185,11 +188,12 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Phase 2 — Data Layer Foundation (Batch 2.1) | ✅ Complete |
 | Phase 2 — Product Catalog (Batch 2.2) | ✅ Complete |
 | Phase 2 — Variants & Inventory (Batch 2.3) | ✅ Complete |
+| Phase 2 — Cart, Orders & Payments (Batch 2.4) | ✅ Complete |
 | Phase 2 — remaining batches | Planned |
 | **Phase 2** | **🔄 In Progress** |
 | Phase 3+ | Planned |
 
-Current test suite: **70 tests, 189 assertions** passing (`php artisan test`). Repository history: **94 commits**.
+Current test suite: **87 tests, 239 assertions** passing (`php artisan test`). Repository history: **105 commits**.
 
 ## Known Issues / Environment Notes
 
@@ -210,6 +214,8 @@ Current test suite: **70 tests, 189 assertions** passing (`php artisan test`). R
 - **SQLite has no `fullText()` index support** — the test suite's `DB_CONNECTION` (`phpunit.xml`) is SQLite in-memory, so `product_translations`' FULLTEXT index is skipped there (`Schema::getConnection()->getDriverName() !== 'sqlite'`); MySQL/production is unaffected.
 - **`ProductVariant::available_quantity` is a computed accessor (`stock_quantity - reserved_quantity`), not a column** — it cannot be used in `WHERE`/`ORDER BY`; an "available only" SQL filter (e.g. Batch 4's category filters) needs `whereRaw('stock_quantity - reserved_quantity > 0')` instead.
 - **`InventoryService::commit()` always logs `InventoryMovementType::Out`** — it currently covers both "sold to a customer" and any future "returned from a customer" case; the distinction is meant to come from `reference_type`/`reference_id` once returns exist (Batch 2.4), not a new enum case that would change what `Out` means.
+- **A product that's actually been ordered can never be hard-deleted** — `inventory_movements.variant_id` is `restrictOnDelete()` to protect the audit trail, and `product_variants.product_id` cascades from the product, so force-deleting an ordered product's variant is blocked by that restrict rule. This is intentional (approved trade-off), not a bug; the "order survives product deletion" scenario is tested with a variant that was deliberately never committed through checkout.
+- **Cart lifetime: 1 day for guest carts, 7 days for registered users** — `CartService::findOrCreateForGuest()`/`findOrCreateForUser()`; `ReleaseExpiredCartsJob` releases the stock reservation and deletes the cart once `expires_at` passes.
 
 ## Documentation
 
