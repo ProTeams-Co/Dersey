@@ -103,6 +103,9 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 - **Three-tier delete strategy** — soft deletes for the catalog and people (`users`, `admins`, `addresses`); hard deletes for pivot/temporary tables only; **financial records are never deleted at all** — cancellation is a status (`OrderStatus::Cancelled`), not a row removal.
 - **27 Egyptian governorates + 165 cities**, seeded with bilingual names (`GovernorateSeeder`). Addresses reference geography with `restrict`, not `cascade` — deleting a governorate with addresses on it fails outright.
 - **Settings load once into Redis**, keyed via the existing `CacheKeys::settings()`/`VersionedCache` machinery, invalidated automatically by `SettingObserver` on every write. `migrate:fresh` does not clear Redis — `RolePermissionSeeder` explicitly forgets spatie/permission's own cache at the start of its run for exactly this reason.
+- **Catalog is nested-set and variants-ready** — `categories` uses `kalnoy/nestedset` (root → sub-category → leaf, 3 levels deep in seed data), with attributes split by `is_variant` (size/color generate purchasable variants in a later batch; material/season are filter-only). Deleting a category with live children or products still directly attached to it is blocked outright (`CategoryHasDependentsException`, `Category::canBeDeleted()`), never silently cascaded.
+- **Real Arabic slugs** — `category_translations`/`brand_translations`/`product_translations` use `UNIQUE(slug, locale)`, not `UNIQUE(slug)`: the same slug string can exist once per language, and Arabic slugs keep native Arabic characters (`Str::slug($text, '-', null)`) instead of being transliterated to Latin, for better local SEO.
+- **Arabic FULLTEXT search** — `product_translations` has a `FULLTEXT` index on `name`/`description`, verified against real Arabic text on the local MariaDB instance; skipped automatically on SQLite (the test suite's driver has no `fullText()` support at all), so MySQL/production always gets the real index.
 
 ## ⚠️ Engineering Constraints
 
@@ -177,11 +180,12 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Phase 1 — Component Library (Batch 1.6) | ✅ Complete |
 | **Phase 1 — Foundation** | **✅ Complete** |
 | Phase 2 — Data Layer Foundation (Batch 2.1) | ✅ Complete |
+| Phase 2 — Product Catalog (Batch 2.2) | ✅ Complete |
 | Phase 2 — remaining batches | Planned |
 | **Phase 2** | **🔄 In Progress** |
 | Phase 3+ | Planned |
 
-Current test suite: **48 tests, 124 assertions** passing (`php artisan test`). Repository history: **83 commits**.
+Current test suite: **57 tests, 158 assertions** passing (`php artisan test`). Repository history: **84 commits**.
 
 ## Known Issues / Environment Notes
 
@@ -197,6 +201,9 @@ Current test suite: **48 tests, 124 assertions** passing (`php artisan test`). R
 - **Product-card color swatches are placeholders** drawn from the existing semantic tokens (primary/accent/ink/...), not real per-product colors — there is no Color model yet; real swatch data needs one, planned for Phase 2.
 - **`migrate:fresh` does not clear Redis** — cached data (like spatie/permission's role/permission cache) survives a table drop and can point at now-invalid IDs. `RolePermissionSeeder` already handles this; any new seeder that reads from a cache needs to account for it too.
 - **Permissions exist for resources with no tables yet** (`products.*`, `orders.*`, ...) — deliberately seeded ahead of the tables/UI that will actually enforce them, which land in later Phase 2 batches.
+- **`kalnoy/nestedset` defines `parent_id` as 32-bit (`unsignedInteger`) while `categories.id` is 64-bit (`unsignedBigInteger`)** — the package's own `nestedSet()` macro caused a real FK failure (`errno 150`) on `categories.parent_id`; `_lft`/`_rgt`/`parent_id` are defined by hand in the migration instead, with `parent_id` matching `id`'s width.
+- **The installed `kalnoy/nestedset` version has no `depth` column** — only `_lft`/`_rgt`, with depth computed via `->withDepth()` at query time; confirmed by reading the package source directly, not assumed from its docs.
+- **SQLite has no `fullText()` index support** — the test suite's `DB_CONNECTION` (`phpunit.xml`) is SQLite in-memory, so `product_translations`' FULLTEXT index is skipped there (`Schema::getConnection()->getDriverName() !== 'sqlite'`); MySQL/production is unaffected.
 
 ## Documentation
 
