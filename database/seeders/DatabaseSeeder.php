@@ -41,5 +41,23 @@ class DatabaseSeeder extends Seeder
         $this->call([
             OrderSeeder::class,
         ]);
+
+        // Batch 2.5 (content/SEO/reviews) - runs after OrderSeeder because
+        // ReviewSeeder links verified-purchase reviews to real delivered
+        // order items, and RedirectSeeder points at real page slugs from
+        // PageSeeder.
+        $this->call([
+            PageSeeder::class,
+            PostCategorySeeder::class,
+            TagSeeder::class,
+            PostSeeder::class,
+            ReviewSeeder::class,
+            BannerSeeder::class,
+            FaqSeeder::class,
+            ContactMessageSeeder::class,
+            NewsletterSubscriberSeeder::class,
+            SearchLogSeeder::class,
+            RedirectSeeder::class,
+        ]);
     }
 }
