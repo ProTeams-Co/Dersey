@@ -125,10 +125,14 @@ class InventoryService
      * `$quantity`. Logged as InventoryMovementType::Out - the enum has no
      * separate "commit" case, and this genuinely is stock leaving
      * inventory, the same direction as any other Out movement.
+     *
+     * $reference is optional (added in Batch 2.4, backward-compatible with
+     * existing callers) so the resulting movement can link back to the
+     * Order it belongs to, same as adjust() already supports.
      */
-    public function commit(ProductVariant $variant, int $quantity): InventoryMovement
+    public function commit(ProductVariant $variant, int $quantity, ?Model $reference = null): InventoryMovement
     {
-        return DB::transaction(function () use ($variant, $quantity) {
+        return DB::transaction(function () use ($variant, $quantity, $reference) {
             $locked = ProductVariant::query()->lockForUpdate()->findOrFail($variant->id);
 
             if ($quantity > $locked->stock_quantity) {
@@ -146,6 +150,8 @@ class InventoryService
                 'quantity' => -$quantity,
                 'quantity_before' => $stockBefore,
                 'quantity_after' => $locked->stock_quantity,
+                'reference_type' => $reference?->getMorphClass(),
+                'reference_id' => $reference?->getKey(),
             ]);
 
             $this->dispatchLowStockIfNeeded($locked);
