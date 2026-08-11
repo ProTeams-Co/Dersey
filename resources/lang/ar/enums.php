@@ -84,4 +84,23 @@ return [
         'text' => 'نص',
     ],
 
+    'shipping_method_type' => [
+        'flat' => 'سعر ثابت',
+        'weight_based' => 'حسب الوزن',
+        'free_over' => 'مجاني فوق حد معيّن',
+    ],
+
+    'refund_status' => [
+        'pending' => 'قيد الانتظار',
+        'processed' => 'تم الاسترجاع',
+        'failed' => 'فشل',
+    ],
+
+    'return_request_status' => [
+        'pending' => 'قيد الانتظار',
+        'approved' => 'مقبول',
+        'rejected' => 'مرفوض',
+        'completed' => 'مكتمل',
+    ],
+
 ];

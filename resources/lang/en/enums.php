@@ -84,4 +84,23 @@ return [
         'text' => 'Text',
     ],
 
+    'shipping_method_type' => [
+        'flat' => 'Flat Rate',
+        'weight_based' => 'Weight-Based',
+        'free_over' => 'Free Over a Threshold',
+    ],
+
+    'refund_status' => [
+        'pending' => 'Pending',
+        'processed' => 'Processed',
+        'failed' => 'Failed',
+    ],
+
+    'return_request_status' => [
+        'pending' => 'Pending',
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+        'completed' => 'Completed',
+    ],
+
 ];

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\GovernorateFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Translatable\HasTranslations as HasJsonTranslations;
 
@@ -24,6 +25,7 @@ class Governorate extends Model
 
     protected $fillable = [
         'code',
+        'shipping_zone_id',
         'name',
         'is_active',
         'sort',
@@ -40,5 +42,10 @@ class Governorate extends Model
     public function cities(): HasMany
     {
         return $this->hasMany(City::class);
+    }
+
+    public function shippingZone(): BelongsTo
+    {
+        return $this->belongsTo(ShippingZone::class);
     }
 }
