@@ -4,10 +4,13 @@ namespace App\Models;
 
 use App\Enums\AdminStatus;
 use App\Models\Concerns\HasDefaultActivityLog;
+use App\Notifications\AdminResetPasswordNotification;
 use Database\Factories\AdminFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\URL;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -18,7 +21,7 @@ use Spatie\Permission\Traits\HasRoles;
 class Admin extends Authenticatable
 {
     /** @use HasFactory<AdminFactory> */
-    use HasDefaultActivityLog, HasFactory, HasRoles, SoftDeletes;
+    use HasDefaultActivityLog, HasFactory, HasRoles, Notifiable, SoftDeletes;
 
     protected string $guard_name = 'admin';
 
@@ -43,5 +46,17 @@ class Admin extends Authenticatable
             'password' => 'hashed',
             'status' => AdminStatus::class,
         ];
+    }
+
+    /**
+     * Overrides CanResetPassword's default (which points at the storefront
+     * `password.reset` route) - the admin guard has its own broker
+     * (config/auth.php `passwords.admins`) and its own route name.
+     */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $url = URL::route('admin.password.reset', ['token' => $token, 'email' => $this->getEmailForPasswordReset()]);
+
+        $this->notify(new AdminResetPasswordNotification($url));
     }
 }

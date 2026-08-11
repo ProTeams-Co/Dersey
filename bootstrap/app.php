@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\Admin\Authenticate as AdminAuthenticate;
+use App\Http\Middleware\Admin\EnsureAdminIsActive;
+use App\Http\Middleware\Admin\RedirectIfAuthenticated as RedirectIfAdminAuthenticated;
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
@@ -33,6 +36,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'localizationRedirect' => LaravelLocalizationRedirectFilter::class,
             'localizationViewPath' => LaravelLocalizationViewPath::class,
             'setLocale' => SetLocale::class,
+            'admin.auth' => AdminAuthenticate::class,
+            'admin.guest' => RedirectIfAdminAuthenticated::class,
+            'admin.active' => EnsureAdminIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
