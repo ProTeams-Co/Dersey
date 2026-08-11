@@ -21,6 +21,10 @@ class DatabaseSeeder extends Seeder
             GovernorateSeeder::class,
             SettingSeeder::class,
             RolePermissionSeeder::class,
+            CategorySeeder::class,
+            BrandSeeder::class,
+            AttributeSeeder::class,
+            ProductSeeder::class,
         ]);
 
         User::factory()->create([
