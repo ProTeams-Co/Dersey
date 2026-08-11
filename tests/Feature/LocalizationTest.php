@@ -46,16 +46,15 @@ it('returns 404 for an unsupported locale segment, never a redirect', function (
     $this->get('/xx/anything')->assertNotFound();
 });
 
-it('serves /admin directly with no locale prefix and no redirect', function () {
-    // A bare 404 here would be a false positive — routes/admin.php is empty
-    // until Batch 3.0, so a 404 could just as easily mean "no route
-    // registered" as "correctly excluded from the locale system". The
-    // TODO(3.0) ping route in routes/admin.php exists so this assertion
-    // actually distinguishes the two.
+it('serves /admin directly with no locale prefix, redirecting only to the admin login (never a locale)', function () {
+    // Since Batch 3.0, /admin is the real dashboard route, guarded by
+    // admin.auth - an unauthenticated request 302s to /admin/login, not a
+    // locale-prefixed URL. That redirect target (not a 404, not a
+    // {locale}/... URL) is still proof /admin sits outside the locale
+    // system, same as the old TODO(3.0) ping route proved before it existed.
     $response = $this->get('/admin');
 
-    $response->assertOk();
-    $response->assertSee('admin ok');
+    $response->assertRedirect(route('admin.login'));
 });
 
 it('does not let the locale prefix capture /admin', function () {
@@ -66,12 +65,10 @@ it('does not let the locale prefix capture /admin', function () {
     $this->get('/en/admin')->assertNotFound();
 });
 
-it('does not redirect or run SetLocale for /admin regardless of Accept-Language', function () {
+it('does not redirect to a locale or run SetLocale for /admin regardless of Accept-Language', function () {
     $response = $this->get('/admin', ['Accept-Language' => 'en-GB,en;q=0.9']);
 
-    $response->assertOk();
-    $response->assertSee('admin ok');
-    expect($response->headers->get('Location'))->toBeNull();
+    $response->assertRedirect(route('admin.login'));
     expect(app()->getLocale())->toBe(config('app.locale'));
 });
 
