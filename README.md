@@ -118,6 +118,15 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 - **Slug changes generate redirects automatically** — `RedirectService::resolve()` walks a redirect chain and collapses it into one hop, with cycle detection (`RedirectLoopException`) so a misconfigured `A → B → A` loop fails safely instead of looping forever; `ProductTranslationObserver`/`CategoryTranslationObserver` auto-create a `redirects` row whenever a translated slug actually changes, via each model's own `seoPath()` (the single place the URL convention lives, currently a documented `TODO(4.x)` placeholder).
 - **Arabic search normalization is mandatory before logging a search term** — `ArabicNormalizer::normalize()` unifies alef/ya/ta-marbuta variants and strips diacritics, so "فستان", "فُستان", and "فستآن" all collapse to the same `search_logs.normalized_term`; without it, popularity/zero-results reports built on top would be meaningless.
 
+## Admin Panel
+
+Hand-built from scratch (Batch 3.0) — no Filament, no Livewire, no admin scaffolding package.
+
+- **`AdminTable` is the one engine behind every listing page** — search, filter, sort, and pagination all run through the same query (`filteredQuery()`) regardless of whether the response is JSON (an Ajax re-fetch) or a full server-rendered page. The first load of any admin table is real HTML with real data already in it — `admin/table.js` only progressively enhances the same links/forms into Ajax calls; with JavaScript off, every interaction still works as a plain page reload.
+- **Search on translated fields is normalization-aware at the SQL level** — `AdminTable::translatedSearchColumns()` searches through a model's `{model}_translations` table via a nested-`REPLACE()` SQL expression mirroring `ArabicNormalizer`'s alef/ya/ta-marbuta rules, so a search for "فُستان" matches a stored "فستان" without a separate normalized column.
+- **CKEditor 5 and FilePond are dynamically imported, not bundled** — `admin/editor.js`/`admin/media.js` only fetch them when a `[data-editor]`/`[data-media-picker]` element actually exists on the page, the same pattern as the storefront's GSAP/Lenis. The base `admin.js` payload is ~38 kB gzip; CKEditor 5 alone is ~525 kB gzip, loaded only where it's actually used.
+- **Two guard-resolution bugs were caught and fixed while building this**: `AuthorizesRequests`' default `authorize()` and spatie/laravel-activitylog's default causer resolver both read the *default* (`web`) guard's user, which is always null on an admin request (`admin` is a completely separate guard/session) — `AdminController::authorize()` and a `CauserResolver::resolveUsing()` override in `AppServiceProvider` fix both. A third, unrelated bug surfaced in the same pass: `HasDefaultActivityLog` (since Batch 2.1) never called `logFillable()`/`logAll()`, so **automatic activity logging had been a silent no-op for every model in the project** — fixed by adding `->logFillable()`.
+
 ## ⚠️ Engineering Constraints
 
 These are hard constraints, not preferences:
@@ -158,6 +167,10 @@ php artisan key:generate
 php artisan migrate:fresh --seed
 
 npm run build   # or `npm run dev` for local development
+
+# create an admin account (interactive prompts if flags are omitted):
+php artisan admin:create --name="..." --email="..." --password="..." --role="super-admin"
+
 php artisan serve
 ```
 
@@ -198,9 +211,10 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Phase 2 — Cart, Orders & Payments (Batch 2.4) | ✅ Complete |
 | Phase 2 — Content, SEO & Reviews (Batch 2.5) | ✅ Complete |
 | **Phase 2** | **✅ Complete** |
-| Phase 3+ | Planned |
+| Phase 3 — Admin Panel Core (Batch 3.0) | ✅ Complete |
+| **Phase 3** | **🔄 In Progress** |
 
-Current test suite: **106 tests, 287 assertions** passing (`php artisan test`). Repository history: **129 commits**.
+Current test suite: **124 tests, 325 assertions** passing (`php artisan test`). Repository history: **143 commits**.
 
 ## Known Issues / Environment Notes
 
@@ -209,7 +223,7 @@ Current test suite: **106 tests, 287 assertions** passing (`php artisan test`). 
 - **Horizon does not run on Windows** — it requires the `ext-pcntl` and `ext-posix` PHP extensions, which don't exist in Windows PHP builds. Locally, use `php artisan queue:work`; Horizon is for the VPS only.
 - **Laravel Pulse was removed** — it forces `livewire/livewire` as a hard dependency, which directly conflicts with the "no Livewire" constraint. Monitoring currently relies on **Sentry only**; the Pulse decision is deferred to Phase 8.
 - **`FILESYSTEM_DISK=local`** currently — this switches to `media` (Cloudflare R2) at deploy time; the storage layer is written against the same disk interface either way.
-- **`/admin` has a temporary ping route** (`TODO(3.0)`) proving it sits outside the locale system — it returns a bare 200 with no real admin UI yet, and is replaced by the actual admin routes in Batch 3.0.
+- **`/admin` is the real admin panel now** (Batch 3.0) — the old `TODO(3.0)` ping stub is gone; an unauthenticated request 302s to `/admin/login` instead, which is still the proof it sits outside the locale system (no `{locale}` prefix, no redirect to a locale).
 - **`resources/fonts/_source/` is not in the repo** — it's the build input for `scripts/subset-fonts.sh` (gitignored, ~1.2MB of full font families). Source downloads: Clash Display and Satoshi from Fontshare, Alexandria and IBM Plex Sans Arabic from Google Fonts.
 - **Footer payment-method badges are plain text** (Visa/Mastercard/meeza/Fawry), not real logos — no payment-network brand assets exist in the project yet.
 - **The mobile navigation drawer has no cart entry point of its own** — its backdrop correctly blocks pointer events to whatever is behind it, including the header's cart icon, so once the cart is functional the drawer will need a direct link to it.
@@ -224,6 +238,8 @@ Current test suite: **106 tests, 287 assertions** passing (`php artisan test`). 
 - **A product that's actually been ordered can never be hard-deleted** — `inventory_movements.variant_id` is `restrictOnDelete()` to protect the audit trail, and `product_variants.product_id` cascades from the product, so force-deleting an ordered product's variant is blocked by that restrict rule. This is intentional (approved trade-off), not a bug; the "order survives product deletion" scenario is tested with a variant that was deliberately never committed through checkout.
 - **Cart lifetime: 1 day for guest carts, 7 days for registered users** — `CartService::findOrCreateForGuest()`/`findOrCreateForUser()`; `ReleaseExpiredCartsJob` releases the stock reservation and deletes the cart once `expires_at` passes.
 - **No dedicated factories for Batch 2.5's content/SEO/review models** (`Page`, `Post`, `Tag`, `Review`, `Banner`, `Faq`, `Redirect`, `SearchLog`, ...) — deliberately skipped to avoid scope creep, since the batch's own seeders build demo rows via direct `::create()` calls (matching `CategorySeeder`'s existing style) and its Pest tests construct rows inline. This is known technical debt: Phase 3/4 test suites that need this data conveniently (e.g. bulk review fixtures, randomized post catalogs) will need real factories added first.
+- **CKEditor 5 is ~525 kB gzip even lazy-loaded** — it's only fetched on pages with a `[data-editor]` field, but the full CKEditor 5 build (every plugin used) is still heavy for what the admin panel actually needs. A custom, trimmed CKEditor build (dropping unused plugins) would cut this significantly; not done in Batch 3.0 since it's a build-tooling change, not core admin infrastructure.
+- **`AdminTable` CSV exports write to the `local` disk, not `private`** — `private` is S3/R2-backed (invoices/receipts, CLAUDE.md §5) and `R2_*` credentials are empty in local dev; a CSV export is closer to `local`'s existing "temporary file during processing" use case anyway. Worth revisiting once R2 is actually provisioned in every environment that needs exports.
 
 ## Documentation
 
