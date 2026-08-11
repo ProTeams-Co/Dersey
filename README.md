@@ -95,6 +95,15 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 - A permanent `/design-system` preview page shows every component in every state — local environment only, the route doesn't exist at all outside it (verified by checking `php artisan route:list` under `APP_ENV=production`, not just reading the guard condition). It sits outside the locale system like `/admin`, and its RTL/LTR toggle switches the actual locale too, not just the `dir` attribute, so each direction is tested with real matching-language content.
 - `--z-index-tooltip` (1500) sits above every other layer, including `modal`/`drawer` (1300/1200) — a tooltip is always anchored to a trigger that can itself be inside one of them.
 
+## Data Layer
+
+- **Hybrid translations** — separate `{model}_translations` tables (`App\Support\Traits\HasTranslations`) for indexed/searchable content, `spatie/laravel-translatable` (JSON columns) for everything else, like governorate/city names. `withCurrentTranslation()` is mandatory before reading a translated attribute: `Model::preventLazyLoading()` (on outside production since Batch 1.1) turns a forgotten eager-load into an immediate `LazyLoadingViolationException` in development instead of a silent N+1 — confirmed at exactly 2 queries regardless of row count when the scope is used, and 0 queries before the exception otherwise.
+- **Money stays integer** — every amount is `unsignedBigInteger` piasters through the `Money` value object, no exceptions.
+- **10 domain enums** (`App\Enums\*`), each backed by `string` and implementing `HasEnumOption` (`label()` from `lang/enums.php`, `color()` mapping to an `x-ui.badge` variant). `OrderStatus` is the one with real state-machine behavior: `canTransitionTo()` is the only legal way to move between statuses (a delivered order can never go back to pending), `isFinal()` for `cancelled`/`returned`.
+- **Three-tier delete strategy** — soft deletes for the catalog and people (`users`, `admins`, `addresses`); hard deletes for pivot/temporary tables only; **financial records are never deleted at all** — cancellation is a status (`OrderStatus::Cancelled`), not a row removal.
+- **27 Egyptian governorates + 165 cities**, seeded with bilingual names (`GovernorateSeeder`). Addresses reference geography with `restrict`, not `cascade` — deleting a governorate with addresses on it fails outright.
+- **Settings load once into Redis**, keyed via the existing `CacheKeys::settings()`/`VersionedCache` machinery, invalidated automatically by `SettingObserver` on every write. `migrate:fresh` does not clear Redis — `RolePermissionSeeder` explicitly forgets spatie/permission's own cache at the start of its run for exactly this reason.
+
 ## ⚠️ Engineering Constraints
 
 These are hard constraints, not preferences:
@@ -132,11 +141,13 @@ cp .env.example .env
 php artisan key:generate
 
 # configure DB, Redis and other credentials in .env, then:
-php artisan migrate
+php artisan migrate:fresh --seed
 
 npm run build   # or `npm run dev` for local development
 php artisan serve
 ```
+
+Seeding creates the 27 governorates/165 cities, base settings, and the admin roles/permissions. The default super-admin account is **not** created unless `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD` are set in `.env` first (see `.env.example` — no real credentials are ever committed); `RolePermissionSeeder` skips account creation and prints a warning if either is left empty.
 
 ### Environment Variables
 
@@ -152,6 +163,7 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Monitoring | `SENTRY_LARAVEL_DSN`, `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_PROFILES_SAMPLE_RATE`, `SENTRY_ENVIRONMENT`, `LOG_SLACK_WEBHOOK_URL` |
 | Backup | `BACKUP_ARCHIVE_PASSWORD`, `BACKUP_DISK` |
 | Store | `STORE_CURRENCY`, `STORE_PHONE`, `STORE_EMAIL` |
+| Super-admin seed | `SUPER_ADMIN_NAME`, `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD` |
 
 ## Project Status
 
@@ -164,9 +176,12 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Phase 1 — Storefront Interface Shell (Batch 1.5) | ✅ Complete |
 | Phase 1 — Component Library (Batch 1.6) | ✅ Complete |
 | **Phase 1 — Foundation** | **✅ Complete** |
-| Phase 2+ | Planned |
+| Phase 2 — Data Layer Foundation (Batch 2.1) | ✅ Complete |
+| Phase 2 — remaining batches | Planned |
+| **Phase 2** | **🔄 In Progress** |
+| Phase 3+ | Planned |
 
-Current test suite: **30 tests, 80 assertions** passing (`php artisan test`). Repository history: **72 commits**.
+Current test suite: **48 tests, 124 assertions** passing (`php artisan test`). Repository history: **83 commits**.
 
 ## Known Issues / Environment Notes
 
@@ -180,6 +195,8 @@ Current test suite: **30 tests, 80 assertions** passing (`php artisan test`). Re
 - **Footer payment-method badges are plain text** (Visa/Mastercard/meeza/Fawry), not real logos — no payment-network brand assets exist in the project yet.
 - **The mobile navigation drawer has no cart entry point of its own** — its backdrop correctly blocks pointer events to whatever is behind it, including the header's cart icon, so once the cart is functional the drawer will need a direct link to it.
 - **Product-card color swatches are placeholders** drawn from the existing semantic tokens (primary/accent/ink/...), not real per-product colors — there is no Color model yet; real swatch data needs one, planned for Phase 2.
+- **`migrate:fresh` does not clear Redis** — cached data (like spatie/permission's role/permission cache) survives a table drop and can point at now-invalid IDs. `RolePermissionSeeder` already handles this; any new seeder that reads from a cache needs to account for it too.
+- **Permissions exist for resources with no tables yet** (`products.*`, `orders.*`, ...) — deliberately seeded ahead of the tables/UI that will actually enforce them, which land in later Phase 2 batches.
 
 ## Documentation
 
