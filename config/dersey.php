@@ -44,4 +44,22 @@ return [
 
     'signed_url_ttl' => 5,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Default super-admin account
+    |--------------------------------------------------------------------------
+    |
+    | Seeded by RolePermissionSeeder with the super-admin role — values live
+    | in .env only, never hardcoded here (CLAUDE.md). If SUPER_ADMIN_EMAIL
+    | or SUPER_ADMIN_PASSWORD is left empty, the seeder skips account
+    | creation entirely rather than creating one with a guessable password.
+    |
+    */
+
+    'super_admin' => [
+        'name' => env('SUPER_ADMIN_NAME', 'Super Admin'),
+        'email' => env('SUPER_ADMIN_EMAIL'),
+        'password' => env('SUPER_ADMIN_PASSWORD'),
+    ],
+
 ];
