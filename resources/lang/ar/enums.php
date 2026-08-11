@@ -103,4 +103,34 @@ return [
         'completed' => 'مكتمل',
     ],
 
+    'post_status' => [
+        'draft' => 'مسودة',
+        'published' => 'منشور',
+        'scheduled' => 'مجدول',
+    ],
+
+    'review_status' => [
+        'pending' => 'قيد المراجعة',
+        'approved' => 'معتمد',
+        'rejected' => 'مرفوض',
+    ],
+
+    'contact_message_status' => [
+        'new' => 'جديدة',
+        'read' => 'مقروءة',
+        'replied' => 'تم الرد',
+    ],
+
+    'banner_position' => [
+        'hero' => 'رئيسي',
+        'mid' => 'وسط الصفحة',
+        'footer' => 'أسفل الصفحة',
+        'category' => 'صفحة تصنيف',
+    ],
+
+    'redirect_status_code' => [
+        '301' => 'دائم (301)',
+        '302' => 'مؤقت (302)',
+    ],
+
 ];

@@ -103,4 +103,34 @@ return [
         'completed' => 'Completed',
     ],
 
+    'post_status' => [
+        'draft' => 'Draft',
+        'published' => 'Published',
+        'scheduled' => 'Scheduled',
+    ],
+
+    'review_status' => [
+        'pending' => 'Pending Review',
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+    ],
+
+    'contact_message_status' => [
+        'new' => 'New',
+        'read' => 'Read',
+        'replied' => 'Replied',
+    ],
+
+    'banner_position' => [
+        'hero' => 'Hero',
+        'mid' => 'Mid-Page',
+        'footer' => 'Footer',
+        'category' => 'Category Page',
+    ],
+
+    'redirect_status_code' => [
+        '301' => 'Permanent (301)',
+        '302' => 'Temporary (302)',
+    ],
+
 ];
