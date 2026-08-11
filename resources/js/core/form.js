@@ -49,6 +49,11 @@ function submit($form) {
         .fail((xhr) => {
             if (xhr.status === 422 && xhr.responseJSON?.errors) {
                 renderErrors($form, xhr.responseJSON.errors);
+                // Additive, not a behavior change for existing listeners —
+                // admin/form.js uses this to open the right
+                // translatable-tabs tab when the first error is in a
+                // language that isn't currently visible.
+                $form.trigger('dersey:form-error', [xhr.responseJSON.errors]);
             }
         });
 }
