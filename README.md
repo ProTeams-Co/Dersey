@@ -99,7 +99,7 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 
 - **Hybrid translations** — separate `{model}_translations` tables (`App\Support\Traits\HasTranslations`) for indexed/searchable content, `spatie/laravel-translatable` (JSON columns) for everything else, like governorate/city names. `withCurrentTranslation()` is mandatory before reading a translated attribute: `Model::preventLazyLoading()` (on outside production since Batch 1.1) turns a forgotten eager-load into an immediate `LazyLoadingViolationException` in development instead of a silent N+1 — confirmed at exactly 2 queries regardless of row count when the scope is used, and 0 queries before the exception otherwise.
 - **Money stays integer** — every amount is `unsignedBigInteger` piasters through the `Money` value object, no exceptions.
-- **10 domain enums** (`App\Enums\*`), each backed by `string` and implementing `HasEnumOption` (`label()` from `lang/enums.php`, `color()` mapping to an `x-ui.badge` variant). `OrderStatus` is the one with real state-machine behavior: `canTransitionTo()` is the only legal way to move between statuses (a delivered order can never go back to pending), `isFinal()` for `cancelled`/`returned`.
+- **18 domain enums** (`App\Enums\*`), each backed by `string` and implementing `HasEnumOption` (`label()` from `lang/enums.php`, `color()` mapping to an `x-ui.badge` variant). `OrderStatus` is the one with real state-machine behavior: `canTransitionTo()` is the only legal way to move between statuses (a delivered order can never go back to pending), `isFinal()` for `cancelled`/`returned`.
 - **Three-tier delete strategy** — soft deletes for the catalog and people (`users`, `admins`, `addresses`); hard deletes for pivot/temporary tables only; **financial records are never deleted at all** — cancellation is a status (`OrderStatus::Cancelled`), not a row removal.
 - **27 Egyptian governorates + 165 cities**, seeded with bilingual names (`GovernorateSeeder`). Addresses reference geography with `restrict`, not `cascade` — deleting a governorate with addresses on it fails outright.
 - **Settings load once into Redis**, keyed via the existing `CacheKeys::settings()`/`VersionedCache` machinery, invalidated automatically by `SettingObserver` on every write. `migrate:fresh` does not clear Redis — `RolePermissionSeeder` explicitly forgets spatie/permission's own cache at the start of its run for exactly this reason.
@@ -112,6 +112,11 @@ Dersey is a B2C fashion storefront for a single vendor, selling final-sale items
 - **Orders snapshot everything, and survive the product being deleted** — `order_items.product_name`/`sku`/`unit_price`/`line_total` are copied at checkout, not read live; `product_id`/`variant_id` are `nullOnDelete` on purpose, verified by actually force-deleting a product after ordering it and confirming the order still displays correctly.
 - **Stock reservation stays consistent across a cart's whole lifecycle** — add/update/remove/merge/expiry all route through `InventoryService`, and a direct SQL sweep (`product_variants.reserved_quantity` vs. the live sum of `cart_items.quantity`) turns up zero drift after exercising every one of those paths together.
 - **Payment webhooks are deduplicated at the database, not in code** — `payment_webhooks` has `UNIQUE(transaction_id, event_type)`; Paymob's known duplicate redeliveries fail to insert a second time, rather than relying on an application-level check that could itself race.
+- **Static pages and a blog**, both on the same hybrid-translation pattern as the catalog — `pages`/`page_translations` (the 6 pages Paymob requires for merchant approval: about, contact, shipping/return policy, terms, privacy), and `posts`/`post_categories`/`tags` with a dedicated `PublishScheduledPostsJob` that flips a `scheduled` post to `published` once `published_at` is due.
+- **Product reviews with an exact, never-drifting rating aggregation** — `products.avg_rating`/`reviews_count` are recomputed from scratch (`AVG()`/`COUNT()` over approved reviews only) on every review save/delete, not incremented, so pending/rejected reviews never skew the average and there's no accumulated rounding error over time; `is_verified_purchase` is computed once at save time from whether the linked `order_item` belongs to a delivered order.
+- **Polymorphic SEO metadata with per-model JSON-LD** — `seo_metas` (`HasSeo` trait) lets `Product`/`Category`/`Post` each emit their own schema.org markup (`Product` with `offers`/`aggregateRating`, `Category` as `BreadcrumbList`, `Post` as `Article`), falling back field-by-field to model-computed defaults when no custom row exists for a locale.
+- **Slug changes generate redirects automatically** — `RedirectService::resolve()` walks a redirect chain and collapses it into one hop, with cycle detection (`RedirectLoopException`) so a misconfigured `A → B → A` loop fails safely instead of looping forever; `ProductTranslationObserver`/`CategoryTranslationObserver` auto-create a `redirects` row whenever a translated slug actually changes, via each model's own `seoPath()` (the single place the URL convention lives, currently a documented `TODO(4.x)` placeholder).
+- **Arabic search normalization is mandatory before logging a search term** — `ArabicNormalizer::normalize()` unifies alef/ya/ta-marbuta variants and strips diacritics, so "فستان", "فُستان", and "فستآن" all collapse to the same `search_logs.normalized_term`; without it, popularity/zero-results reports built on top would be meaningless.
 
 ## ⚠️ Engineering Constraints
 
@@ -156,6 +161,8 @@ npm run build   # or `npm run dev` for local development
 php artisan serve
 ```
 
+`migrate:fresh --seed` builds a complete, demo-ready database — geography, catalog, orders, pages, blog posts, reviews, banners, FAQs, search logs, redirects — in **~30 seconds**, safely re-runnable (every seeder guards against duplicate rows on a second run).
+
 Seeding creates the 27 governorates/165 cities, base settings, and the admin roles/permissions. The default super-admin account is **not** created unless `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD` are set in `.env` first (see `.env.example` — no real credentials are ever committed); `RolePermissionSeeder` skips account creation and prints a warning if either is left empty.
 
 ### Environment Variables
@@ -189,11 +196,11 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Phase 2 — Product Catalog (Batch 2.2) | ✅ Complete |
 | Phase 2 — Variants & Inventory (Batch 2.3) | ✅ Complete |
 | Phase 2 — Cart, Orders & Payments (Batch 2.4) | ✅ Complete |
-| Phase 2 — remaining batches | Planned |
-| **Phase 2** | **🔄 In Progress** |
+| Phase 2 — Content, SEO & Reviews (Batch 2.5) | ✅ Complete |
+| **Phase 2** | **✅ Complete** |
 | Phase 3+ | Planned |
 
-Current test suite: **87 tests, 239 assertions** passing (`php artisan test`). Repository history: **105 commits**.
+Current test suite: **106 tests, 287 assertions** passing (`php artisan test`). Repository history: **129 commits**.
 
 ## Known Issues / Environment Notes
 
@@ -216,6 +223,7 @@ Current test suite: **87 tests, 239 assertions** passing (`php artisan test`). R
 - **`InventoryService::commit()` always logs `InventoryMovementType::Out`** — it currently covers both "sold to a customer" and any future "returned from a customer" case; the distinction is meant to come from `reference_type`/`reference_id` once returns exist (Batch 2.4), not a new enum case that would change what `Out` means.
 - **A product that's actually been ordered can never be hard-deleted** — `inventory_movements.variant_id` is `restrictOnDelete()` to protect the audit trail, and `product_variants.product_id` cascades from the product, so force-deleting an ordered product's variant is blocked by that restrict rule. This is intentional (approved trade-off), not a bug; the "order survives product deletion" scenario is tested with a variant that was deliberately never committed through checkout.
 - **Cart lifetime: 1 day for guest carts, 7 days for registered users** — `CartService::findOrCreateForGuest()`/`findOrCreateForUser()`; `ReleaseExpiredCartsJob` releases the stock reservation and deletes the cart once `expires_at` passes.
+- **No dedicated factories for Batch 2.5's content/SEO/review models** (`Page`, `Post`, `Tag`, `Review`, `Banner`, `Faq`, `Redirect`, `SearchLog`, ...) — deliberately skipped to avoid scope creep, since the batch's own seeders build demo rows via direct `::create()` calls (matching `CategorySeeder`'s existing style) and its Pest tests construct rows inline. This is known technical debt: Phase 3/4 test suites that need this data conveniently (e.g. bulk review fixtures, randomized post catalogs) will need real factories added first.
 
 ## Documentation
 
