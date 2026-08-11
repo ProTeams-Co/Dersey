@@ -11,10 +11,13 @@ use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use InvalidArgumentException;
 
 /**
  * No inventory/stock logic here at all - that is Batch 2.3
@@ -83,6 +86,16 @@ class Product extends Model
         return $this->belongsToMany(AttributeValue::class, 'product_attribute_value');
     }
 
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class);
+    }
+
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('status', ProductStatus::Published)
@@ -130,5 +143,109 @@ class Product extends Model
                 return (int) round((($compare - $base) / $compare) * 100);
             },
         );
+    }
+
+    /**
+     * Reads from the already-loaded `images` relation, same reasoning as
+     * ProductVariant::optionsLabel()/displayImage() - eager-load `images`
+     * before calling this on more than one product.
+     */
+    public function primaryImage(): ?ProductImage
+    {
+        return $this->images->firstWhere('is_primary', true);
+    }
+
+    public function imagesForColor(int $colorValueId): Collection
+    {
+        return $this->images->where('color_value_id', $colorValueId)->values();
+    }
+
+    /**
+     * The Cartesian product of every given attribute's values - 3 sizes ×
+     * 4 colors = 12 variants, one per combination. Each new variant gets a
+     * sequential SKU derived from the product's own (globally unique)
+     * SKU, and its option set is written through syncOptionValues(),
+     * which is what actually enforces the is_variant / no-duplicate-
+     * attribute / same-attribute-set-as-siblings rules - this method
+     * itself only rejects a non-variant attribute up front, before
+     * generating anything, so a bad call fails immediately instead of
+     * partway through.
+     *
+     * @param  list<int>  $attributeIds
+     * @return Collection<int, ProductVariant>
+     */
+    public function generateVariants(array $attributeIds): Collection
+    {
+        $attributes = \App\Models\Attribute::with(['values' => fn ($query) => $query->orderBy('sort')])
+            ->whereIn('id', $attributeIds)
+            ->get();
+
+        if ($attributes->count() !== count($attributeIds)) {
+            throw new InvalidArgumentException('One or more attribute IDs do not exist.');
+        }
+
+        $nonVariant = $attributes->first(fn (\App\Models\Attribute $attribute) => ! $attribute->is_variant);
+
+        if ($nonVariant) {
+            throw new InvalidArgumentException(
+                "Attribute #{$nonVariant->id} is not a variant attribute (is_variant = false)."
+            );
+        }
+
+        $valueIdSets = $attributes->map(fn (\App\Models\Attribute $attribute) => $attribute->values->pluck('id')->all())->all();
+
+        $combinations = array_reduce($valueIdSets, function (array $carry, array $valueIds) {
+            $result = [];
+
+            foreach ($carry as $combination) {
+                foreach ($valueIds as $valueId) {
+                    $result[] = [...$combination, $valueId];
+                }
+            }
+
+            return $result;
+        }, [[]]);
+
+        $variants = new Collection();
+
+        foreach ($combinations as $index => $combination) {
+            // low_stock_threshold set explicitly, not left to the
+            // migration's column default: create() only populates the
+            // in-memory model with what's passed in, so a caller reading
+            // $variant->low_stock_threshold right after this (without a
+            // refresh()) would otherwise get null instead of 5 - caught
+            // for real via a seeder that read it to size an "at
+            // threshold" stock movement and silently got 0 instead.
+            $variant = $this->variants()->create([
+                'sku' => "{$this->sku}-".($index + 1),
+                'stock_quantity' => 0,
+                'low_stock_threshold' => 5,
+            ]);
+
+            $variant->syncOptionValues($combination);
+            $variants->push($variant);
+        }
+
+        return $variants;
+    }
+
+    /**
+     * The variant whose option set is exactly the given value IDs - not a
+     * superset or subset. This is what a product detail page uses once
+     * the shopper has picked one value per option (size + color, say):
+     * resolve those two value IDs straight to the one purchasable variant.
+     *
+     * @param  list<int>  $valueIds
+     */
+    public function findVariantByOptions(array $valueIds): ?ProductVariant
+    {
+        $valueIds = array_values(array_unique($valueIds));
+        $count = count($valueIds);
+
+        return $this->variants()
+            ->whereHas('attributeValues', fn (Builder $query) => $query->whereIn('attribute_values.id', $valueIds), '=', $count)
+            ->with('attributeValues')
+            ->get()
+            ->first(fn (ProductVariant $variant) => $variant->attributeValues->count() === $count);
     }
 }
