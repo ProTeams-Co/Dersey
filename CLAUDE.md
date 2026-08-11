@@ -121,31 +121,46 @@ Stack: Laravel 12 · PHP 8.2+ · MySQL 8 (`utf8mb4_unicode_ci`) · Redis · Tail
 - **بق `@json` في Blade:** الـ arrays المعقّدة (متداخلة + فيها استدعاء دوال زي `route()`) لازم تتبني كمتغيّر PHP الأول (`@php $data = [...]; @endphp`) وبعدين `@json($data)` — استدعاء `@json([...])` مباشر بتعبير متداخل بيتقطع عند أول قوس إغلاق `)` يلاقيه (اتكشف في Batch 1.3 مع `window.Dersey`). كمان: تجنّب كتابة `@directive(` بصيغتها الحرفية جوه أي Blade comment (`{{-- --}}`) — بيلخبط الـ compiler ويسرّب كود PHP لناتج الصفحة.
 - أي `<script>` inline في Blade بيستخدم jQuery أو `window.Dersey` لازم يكون `type="module"`. الـ bundle بيتحمّل بـ `defer` ومش بيكون جاهز وقت تنفيذ السكريبتات العادية.
 
-## 14. قواعد التسمية
+## 14. قواعد طبقة البيانات
+
+- كل مبلغ فلوس `unsignedBigInteger` بالقروش + [`App\Casts\MoneyCast`](app/Casts/MoneyCast.php) — 🚫 ممنوع `decimal`/`float` لأي عمود فلوس في المشروع كله (زي قسم 3).
+- كل حالة أو نوع = PHP Enum مدعوم بـ `string` (`App\Enums\*`) — 🚫 ممنوع تخزين string خام في العمود. كل enum بيطبّق `App\Enums\Contracts\HasEnumOption` (`label()` من `lang/{ar,en}/enums.php`، `color()` بيرجّع اسم variant من `x-ui.badge`).
+- انتقالات حالة الطلب (`OrderStatus`) تمر **حصرًا** عبر `canTransitionTo()` — مفيش تعديل مباشر لعمود الحالة من غير المرور على الفحص ده. `isFinal()` بترجع `true` لـ `cancelled`/`returned` بس (الحالتين اللي مالهمش أي انتقال خارج منهم).
+- **الحذف:**
+  - `SoftDeletes`: الكتالوج، المستخدمين (`users`)، `admins`، `addresses`.
+  - Hard delete: الجداول الرابطة والمؤقتة بس.
+  - **مفيش حذف نهائي للسجلات المالية أبدًا** — الإلغاء **حالة** (`OrderStatus::Cancelled`، `PaymentStatus::Failed`...) مش حذف من الجدول.
+- الجغرافيا (`governorates`, `cities`) على `addresses` بـ `restrict` مش `cascade` — حذف محافظة أو مدينة ما يمسحش عناوين العملاء المرتبطة بيها.
+- نظام الترجمة هجين: جداول `{model}_translations` منفصلة (عبر [`App\Support\Traits\HasTranslations`](app/Support/Traits/HasTranslations.php)) للمحتوى المفهرس/القابل للبحث، و`spatie/laravel-translatable` (JSON column) لباقي البيانات المرجعية (زي أسماء المحافظات/المدن). الاسمين نفس بعض (`HasTranslations`) في namespace مختلف — لازم تنتبه لأي `use` غلط.
+- **أي قراءة لحقل مترجَم لازم يسبقها `withCurrentTranslation()`** — لو اتنسيت، `Model::preventLazyLoading()` (مفعّل بره الإنتاج من Batch 1.1) هيرمي `LazyLoadingViolationException` صريح في التطوير/الاختبار **قبل** ما ينفّذ أي استعلام، بدل N+1 صامت يبان كبطء غامض بعدين. مُتحقَّق فعليًا: عدد الاستعلامات ثابت على 2 مهما زاد عدد الصفوف لما تستخدم الـ scope صح.
+- **`migrate:fresh` ما بيمسحش Redis** — أي seeder بيعتمد على كاش (زي `spatie/laravel-permission`، اللي بيكاش الأدوار/الصلاحيات لمدة 24 ساعة) لازم يبطّل الكاش ده في أول الـ `run()` بتاعه (`app(PermissionRegistrar::class)->forgetCachedPermissions()`)، وإلا التشغيلة الثانية لـ `migrate:fresh --seed` ممكن تقرا IDs قديمة باظت مع الجداول اللي اتمسحت.
+
+## 15. قواعد التسمية
 
 - جداول الداتابيز: جمع (`products`, `order_items`).
 - الموديلات: مفرد (`Product`, `OrderItem`).
 - الـ routes: kebab-case (`/best-sellers`, `/order-confirmation`).
 
-## 14. بنية المجلدات
+## 16. بنية المجلدات
 
 ```
 app/
 ├── Casts/                    # MoneyCast
-├── Enums/                    # OrderStatus, PaymentStatus, ProductStatus, Gender...
+├── Enums/                    # 10 domain enums + Contracts/HasEnumOption
 ├── Http/
 │   ├── Controllers/{Front,Admin}/
 │   ├── Middleware/            # AssignRequestId + غيرها
 │   ├── Requests/{Front,Admin}/
 │   └── Resources/
-├── Models/
+├── Models/                    # Model.php + Translation.php (أساسيين) · User, Admin, Address, Governorate, City, Setting · Concerns/
 ├── Repositories/Contracts/
-├── Services/{Cart,Order,Payment,Inventory,Media,Seo}/
+├── Services/{Cart,Order,Payment,Inventory,Media,Seo}/  # + SettingsService.php
 ├── Support/
 │   ├── Money.php              # Value Object
 │   ├── Cache/                 # CacheKeys, VersionedCache, HasVersionedCache
+│   ├── Traits/                 # HasTranslations
 │   └── Helpers/                # money()
-├── Observers/
+├── Observers/                 # SettingObserver, AddressObserver
 ├── Policies/
 ├── Jobs/
 └── View/Components/
