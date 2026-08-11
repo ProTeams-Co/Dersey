@@ -1,0 +1,87 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Enum Language Lines
+    |--------------------------------------------------------------------------
+    |
+    | One group per App\Enums\* case, keyed by the enum's snake_case class
+    | name then its string value — consumed exclusively via that enum's own
+    | label() method, never called directly with a raw key from outside it.
+    |
+    */
+
+    'user_status' => [
+        'active' => 'نشط',
+        'inactive' => 'غير نشط',
+        'banned' => 'محظور',
+    ],
+
+    'admin_status' => [
+        'active' => 'نشط',
+        'inactive' => 'غير نشط',
+    ],
+
+    'gender' => [
+        'men' => 'رجالي',
+        'women' => 'حريمي',
+        'unisex' => 'للجنسين',
+        'kids' => 'أطفال',
+    ],
+
+    'product_status' => [
+        'draft' => 'مسودة',
+        'published' => 'منشور',
+        'archived' => 'مؤرشف',
+    ],
+
+    'order_status' => [
+        'pending' => 'قيد الانتظار',
+        'confirmed' => 'مؤكَّد',
+        'processing' => 'قيد التجهيز',
+        'shipped' => 'تم الشحن',
+        'out_for_delivery' => 'خارج للتوصيل',
+        'delivered' => 'تم التوصيل',
+        'cancelled' => 'ملغي',
+        'returned' => 'مرتجَع',
+    ],
+
+    'payment_status' => [
+        'unpaid' => 'غير مدفوع',
+        'paid' => 'مدفوع',
+        'partially_refunded' => 'مسترجَع جزئيًا',
+        'refunded' => 'مسترجَع',
+        'failed' => 'فشل',
+    ],
+
+    'payment_method' => [
+        'card' => 'كارت',
+        'wallet' => 'محفظة إلكترونية',
+        'kiosk' => 'فوري',
+        'valu' => 'فاليو',
+        'cod' => 'الدفع عند الاستلام',
+    ],
+
+    'inventory_movement_type' => [
+        'in' => 'وارد',
+        'out' => 'صادر',
+        'reserve' => 'محجوز',
+        'release' => 'إفراج',
+        'adjust' => 'تسوية',
+    ],
+
+    'discount_type' => [
+        'fixed' => 'مبلغ ثابت',
+        'percent' => 'نسبة مئوية',
+        'free_shipping' => 'شحن مجاني',
+    ],
+
+    'attribute_type' => [
+        'select' => 'قائمة اختيار',
+        'color' => 'لون',
+        'text' => 'نص',
+    ],
+
+];
