@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Observers\CategoryObserver;
+use App\Support\Traits\HasSeo;
 use App\Support\Traits\HasTranslations;
 use Database\Factories\CategoryFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use Kalnoy\Nestedset\NodeTrait;
 
 /**
@@ -25,7 +27,7 @@ use Kalnoy\Nestedset\NodeTrait;
 class Category extends Model
 {
     /** @use HasFactory<CategoryFactory> */
-    use HasFactory, HasTranslations, NodeTrait, SoftDeletes;
+    use HasFactory, HasSeo, HasTranslations, NodeTrait, SoftDeletes;
 
     protected $fillable = [
         'parent_id',
@@ -94,6 +96,60 @@ class Category extends Model
     public function breadcrumb(): Collection
     {
         return $this->ancestors()->withCurrentTranslation()->get()->push($this);
+    }
+
+    /**
+     * TODO(4.x): the only place to change when real category show routes
+     * exist. The SEO plan calls for a flat path (/{locale}/{category-slug}),
+     * not this placeholder - update the return here to match, and backfill
+     * every existing `redirects` row that was generated from the old
+     * convention (see CLAUDE.md's "التوجيهات التلقائية" note).
+     */
+    public static function seoPath(string $slug, string $locale): string
+    {
+        return "/{$locale}/categories/{$slug}";
+    }
+
+    public function defaultSeoTitle(?string $locale = null): string
+    {
+        return $this->translate($locale)?->name ?? '';
+    }
+
+    public function defaultSeoDescription(?string $locale = null): ?string
+    {
+        $description = $this->translate($locale)?->description;
+
+        return $description ? Str::limit(strip_tags($description), 160) : null;
+    }
+
+    public function defaultSeoImage(): ?string
+    {
+        return $this->image;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function schemaMarkup(?string $locale = null): array
+    {
+        $locale ??= app()->getLocale();
+
+        $items = $this->breadcrumb()->values()->map(function (self $category, int $index) use ($locale) {
+            $translation = $category->translate($locale);
+
+            return [
+                '@type' => 'ListItem',
+                'position' => $index + 1,
+                'name' => $translation?->name,
+                'item' => url("/{$locale}/categories/{$translation?->slug}"),
+            ];
+        })->all();
+
+        return [
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => $items,
+        ];
     }
 
     /**
