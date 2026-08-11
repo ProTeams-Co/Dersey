@@ -26,5 +26,6 @@ return [
     'coupon_first_order_only' => 'الكوبون ده لأول طلب بس.',
     'coupon_not_applicable' => 'مفيش حاجة في السلة تستاهل الخصم ده.',
     'invalid_order_transition' => 'حالة الطلب مينفعش تتغيّر بالشكل ده.',
+    'redirect_loop' => 'حصلت دورة توجيه غير آمنة، تم إيقافها.',
 
 ];

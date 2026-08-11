@@ -26,5 +26,6 @@ return [
     'coupon_first_order_only' => 'This coupon is valid for first orders only.',
     'coupon_not_applicable' => 'Nothing in your cart qualifies for this discount.',
     'invalid_order_transition' => 'The order cannot change to that status.',
+    'redirect_loop' => 'An unsafe redirect loop was detected and stopped.',
 
 ];
