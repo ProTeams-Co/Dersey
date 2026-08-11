@@ -26,11 +26,20 @@ class DatabaseSeeder extends Seeder
             AttributeSeeder::class,
             ProductSeeder::class,
             VariantSeeder::class,
+            ShippingSeeder::class,
+            CouponSeeder::class,
         ]);
 
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
+        ]);
+
+        // Needs at least one real User to exist (the Test User above, or
+        // any from earlier seeders) - runs last since it depends on
+        // products/variants/shipping methods all being seeded already.
+        $this->call([
+            OrderSeeder::class,
         ]);
     }
 }
