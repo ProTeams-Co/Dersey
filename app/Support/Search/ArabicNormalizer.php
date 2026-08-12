@@ -32,4 +32,31 @@ class ArabicNormalizer
 
         return mb_strtolower(trim($term));
     }
+
+    /**
+     * The SQL-side counterpart of normalize() - mirrors the alef/ya/
+     * ta-marbuta rules (not diacritic-stripping; stored catalog text
+     * essentially never contains tashkeel, so there's nothing in the
+     * column for it to strip) as nested REPLACE() calls, so a stored
+     * "فستان" matches a search for "فستأن" without a separate normalized
+     * column. Shared by AdminTable's translated-column search and any
+     * other query built directly against a translation table (e.g. the
+     * category tree's own search) - extracted here instead of living
+     * only inside AdminTable so non-AdminTable query code doesn't have to
+     * duplicate it.
+     *
+     * $column must be a trusted, hardcoded identifier (a column name from
+     * application code, never raw user input) - it is interpolated
+     * directly into the generated SQL.
+     */
+    public static function sqlExpression(string $column): string
+    {
+        $expr = "`{$column}`";
+
+        foreach (['أ' => 'ا', 'إ' => 'ا', 'آ' => 'ا', 'ى' => 'ي', 'ة' => 'ه'] as $from => $to) {
+            $expr = "REPLACE({$expr}, '{$from}', '{$to}')";
+        }
+
+        return "LOWER({$expr})";
+    }
 }

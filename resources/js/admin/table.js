@@ -11,11 +11,13 @@ import Ajax from '../core/ajax';
  * shareable/bookmarkable either way.
  *
  * AdminTable::response() returns JSON (not HTML) for an Ajax request, so
- * rows are rendered here from that JSON - see escapeHtml()/renderRows().
- * Each column carries an `html` flag (server-computed from whether it has
- * a `format` closure) telling us whether its value is developer-authored
- * safe HTML (insert via .html()) or plain data (insert via .text(), so it
- * can never execute as markup).
+ * rows are rendered here from that JSON - see renderRows(). Each column
+ * carries an `html` flag (server-computed from whether it has a `format`
+ * closure) telling us whether its value is developer-authored safe HTML
+ * (insert via .html()) or plain data (insert via .text(), so it can never
+ * execute as markup). Same trust model for each row action's `icon_html` -
+ * server-rendered via Blade::render('<x-ui.icon .../>', ...), never built
+ * from request-controlled input.
  */
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -78,15 +80,31 @@ function renderRows($tbody, rows, columns, hasBulk, hasActions) {
             const $wrap = $('<div>', { class: 'flex items-center justify-end gap-1' });
 
             (row._actions || []).forEach((action) => {
+                // Mirrors x-admin.table.blade.php's own row-action markup
+                // (icon_html/label are already server-translated/rendered
+                // for this JSON path - see AdminTable::formatRowForJson()).
                 const $a = $('<a>', {
                     href: action.url,
                     title: action.label,
-                    class: 'rounded-lg px-1.5 py-1 text-xs font-medium text-muted transition-colors duration-150 ease-smooth hover:bg-surface hover:text-ink motion-reduce:transition-none',
-                    text: action.label,
+                    class: 'rounded-lg p-1.5 text-muted transition-colors duration-150 ease-smooth hover:bg-surface hover:text-ink motion-reduce:transition-none',
                 });
 
+                if (action.icon_html) {
+                    $a.html(action.icon_html);
+                } else {
+                    $a.append($('<span>', { class: 'text-xs', text: action.label }));
+                }
+
+                // A non-GET action (e.g. delete) needs this so
+                // admin/layout.js's confirm handler submits it as a real
+                // POST+_method override instead of just navigating the
+                // link, which would hit a DELETE-only route with GET.
+                if (action.method && action.method.toLowerCase() !== 'get') {
+                    $a.attr('data-row-action-method', action.method);
+                }
+
                 if (action.confirm) {
-                    $a.attr('data-confirm', '').attr('data-confirm-message', action.label);
+                    $a.attr('data-confirm', '').attr('data-confirm-message', Ajax.lang('admin_table_confirm_row_action'));
                 }
 
                 $wrap.append($a);
@@ -217,7 +235,7 @@ function runBulkAction($root, action) {
         .get();
 
     Ajax.request({
-        url: $root.data('table-url').replace(/\/?$/, '/bulk-destroy'),
+        url: $root.data('table-url').replace(/\/?$/, '/bulk-action'),
         method: 'POST',
         data: { ids, action },
     }).done(() => fetchTable($root, $root.data('table-url')));

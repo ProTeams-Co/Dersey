@@ -7,9 +7,11 @@ use App\Support\Search\ArabicNormalizer;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -38,7 +40,13 @@ abstract class AdminTable
     public function __construct(protected Request $request) {}
 
     /**
-     * @return list<array{key: string, label: string, sortable?: bool, searchable?: bool, format?: callable, align?: string}>
+     * `translatable` - set alongside `sortable` on a column whose value
+     * lives on the model's own {model}_translations table, not the base
+     * table itself (see applyTranslatedSort()). Sorting still needs to be
+     * paired with `searchable`/translatedSearchColumns() separately if the
+     * column should also be searchable - the two are independent.
+     *
+     * @return list<array{key: string, label: string, sortable?: bool, translatable?: bool, searchable?: bool, format?: callable, align?: string}>
      */
     abstract public function columns(): array;
 
@@ -117,7 +125,7 @@ abstract class AdminTable
             'columns' => $this->serializableColumns(),
             'filters' => $this->serializableFilters(),
             'bulkActions' => $this->visibleBulkActions(),
-            'rows' => collect($paginator->items())->map(fn (Model $row) => $this->formatRow($row))->all(),
+            'rows' => collect($paginator->items())->map(fn (Model $row) => $this->formatRowForJson($row))->all(),
             'pagination' => [
                 'currentPage' => $paginator->currentPage(),
                 'lastPage' => $paginator->lastPage(),
@@ -225,6 +233,43 @@ abstract class AdminTable
         return $formatted;
     }
 
+    /**
+     * formatRow() itself stays untouched (x-admin.table's Blade path relies
+     * on its `_actions` entries carrying the raw, untranslated `label` key
+     * and `icon` name - it translates/renders those itself via `__()`/
+     * `<x-ui.icon>` at render time). The JSON path has no template to do
+     * that, so admin/table.js's client-rendered rows would otherwise end up
+     * showing the literal untranslated lang key with no icon at all - only
+     * caught by clicking around in a real browser, not by any HTTP-status
+     * Pest test. This adds an already-translated `label` and a
+     * pre-rendered `icon_html` (via Blade::render(), not a duplicated SVG
+     * path table, so it can never drift from x-ui.icon) on top, purely for
+     * the JSON payload.
+     *
+     * @return array<string, mixed>
+     */
+    private function formatRowForJson(Model $row): array
+    {
+        $formatted = $this->formatRow($row);
+
+        $formatted['_actions'] = collect($formatted['_actions'])->map(fn (array $action) => [
+            ...$action,
+            'label' => __($action['label']),
+            'icon_html' => $this->actionIconHtml($action['icon'] ?? null),
+        ])->all();
+
+        return $formatted;
+    }
+
+    private function actionIconHtml(?string $name): string
+    {
+        if (! $name) {
+            return '';
+        }
+
+        return Blade::render('<x-ui.icon :name="$name" class="h-4 w-4" />', ['name' => $name]);
+    }
+
     private function resolve(): LengthAwarePaginator
     {
         return $this->filteredQuery()->paginate($this->perPage())->withQueryString();
@@ -277,31 +322,12 @@ abstract class AdminTable
                     $tq->where('locale', app()->getLocale())
                         ->where(function (Builder $tq2) use ($normalized, $translatedColumns) {
                             foreach ($translatedColumns as $column) {
-                                $tq2->orWhereRaw($this->normalizedColumnSql($column).' LIKE ?', ['%'.$normalized.'%']);
+                                $tq2->orWhereRaw(ArabicNormalizer::sqlExpression($column).' LIKE ?', ['%'.$normalized.'%']);
                             }
                         });
                 });
             }
         });
-    }
-
-    /**
-     * Mirrors ArabicNormalizer's alef/ya/ta-marbuta rules as nested SQL
-     * REPLACE() calls, so a stored "فستان" matches a search for "فستأن" -
-     * diacritic-stripping is deliberately left out here (unlike the PHP
-     * version): stored catalog text essentially never contains tashkeel,
-     * so there is nothing in the column for it to strip; the search TERM
-     * itself still goes through the full ArabicNormalizer::normalize().
-     */
-    private function normalizedColumnSql(string $column): string
-    {
-        $expr = "`{$column}`";
-
-        foreach (['أ' => 'ا', 'إ' => 'ا', 'آ' => 'ا', 'ى' => 'ي', 'ة' => 'ه'] as $from => $to) {
-            $expr = "REPLACE({$expr}, '{$from}', '{$to}')";
-        }
-
-        return "LOWER({$expr})";
     }
 
     private function applyFilters(Builder $query): void
@@ -352,7 +378,62 @@ abstract class AdminTable
     {
         ['key' => $key, 'direction' => $direction] = $this->currentSort();
 
+        $column = collect($this->columns())->firstWhere('key', $key);
+
+        if (($column['translatable'] ?? false) === true) {
+            $this->applyTranslatedSort($query, $key, $direction);
+
+            return;
+        }
+
         $query->orderBy($key, $direction);
+    }
+
+    /**
+     * Batch 3.1 fix: sorting by a translated column (e.g. a translatable
+     * "name") used to just be disabled everywhere, because a plain
+     * orderBy($key) against a column that only exists on the model's own
+     * {model}_translations table throws "Unknown column" on MySQL - masked
+     * on SQLite (the test driver), which tolerates it as a silent no-op
+     * when a LIMIT is present. Verified against the real MySQL `dersey`
+     * database, not assumed.
+     *
+     * Auto-joins that translations table (same {model}_id naming
+     * AdminController::syncTranslations() already relies on) filtered to
+     * the CURRENT locale, then sorts on the translated column there.
+     *
+     * LEFT JOIN, not INNER - the locale filter lives in the join's ON
+     * clause, not a separate WHERE. A WHERE on the translation table's
+     * locale would fail for every row with no matching translation
+     * (NULL from the LEFT JOIN), silently collapsing it back into an
+     * INNER JOIN and dropping that row from the listing entirely - a row
+     * missing a translation in the current locale must still show, just
+     * sorting as if the column were NULL.
+     *
+     * addSelect($baseTable.'.*'), not select() - a bare join makes
+     * Eloquent's default `SELECT *` pull columns from BOTH tables
+     * unqualified, so the translation row's own `id` would silently
+     * overwrite the model's `id` during hydration. addSelect() is safe
+     * whether or not an earlier withCount()/withAggregate() call already
+     * customized the select list (it appends, never replaces) - verified
+     * by reading QueriesRelationships::withAggregate(), which itself does
+     * exactly `select([$this->query->from.'.*'])` the first time a query's
+     * column list is still null, before adding its own aggregate column.
+     */
+    private function applyTranslatedSort(Builder $query, string $column, string $direction): void
+    {
+        $model = $query->getModel();
+        $baseTable = $model->getTable();
+        $translationTable = (new ($model->translationModel()))->getTable();
+        $foreignKey = Str::snake(class_basename($model)).'_id';
+        $locale = app()->getLocale();
+
+        $query->addSelect($baseTable.'.*')
+            ->leftJoin($translationTable, function (JoinClause $join) use ($translationTable, $baseTable, $foreignKey, $locale) {
+                $join->on($translationTable.'.'.$foreignKey, '=', $baseTable.'.id')
+                    ->where($translationTable.'.locale', '=', $locale);
+            })
+            ->orderBy($translationTable.'.'.$column, $direction);
     }
 
     /**
@@ -396,7 +477,22 @@ abstract class AdminTable
             return true;
         }
 
-        return Auth::guard('admin')->user()?->can($permission) ?? false;
+        $user = Auth::guard('admin')->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        // Support different authorization method names to avoid undefined method issues
+        if (method_exists($user, 'can')) {
+            return $user->can($permission);
+        }
+
+        if (method_exists($user, 'hasPermissionTo')) {
+            return $user->hasPermissionTo($permission);
+        }
+
+        return false;
     }
 
     private function export(): StreamedResponse|JsonResponse
@@ -438,5 +534,32 @@ abstract class AdminTable
 
             fclose($handle);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Batch 3.1 gap: three different tables (Admins in 3.0, then Brands/
+     * Categories/Attributes here) each hand-rolled the exact same little
+     * badge-span-with-a-variant-color-map for a status/boolean column
+     * before this existed - promoted here once the duplication showed up
+     * a third time, not on the first repeat.
+     */
+    protected function badge(string $label, string $variant = 'neutral'): string
+    {
+        $classes = match ($variant) {
+            'success' => 'bg-success text-success-foreground',
+            'warning' => 'bg-warning text-warning-foreground',
+            'danger' => 'bg-danger text-danger-foreground',
+            'accent' => 'bg-accent text-accent-foreground',
+            default => 'bg-neutral-200 text-ink',
+        };
+
+        return '<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium '.$classes.'">'.e($label).'</span>';
+    }
+
+    protected function booleanBadge(bool $value): string
+    {
+        return $value
+            ? $this->badge(__('admin.common.yes'), 'success')
+            : $this->badge(__('admin.common.no'), 'neutral');
     }
 }
