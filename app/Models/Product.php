@@ -34,6 +34,7 @@ class Product extends Model
 
     protected $fillable = [
         'brand_id',
+        'primary_category_id',
         'sku',
         'base_price',
         'compare_at_price',
@@ -76,6 +77,21 @@ class Product extends Model
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    /**
+     * The single category driving the publish gate and the admin list's
+     * "category" column/filter - a plain nullable column
+     * (primary_category_id), not a flag on the category_product pivot
+     * (MySQL can't enforce "exactly one is_primary row" without a partial
+     * unique index, which it doesn't support - see the migration). The
+     * primary category is ALSO always present in categories() itself;
+     * App\Services\Catalog\ProductService guarantees that invariant on
+     * every write, not this relation.
+     */
+    public function primaryCategory(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'primary_category_id');
     }
 
     public function categories(): BelongsToMany
@@ -169,6 +185,76 @@ class Product extends Model
         }
 
         return $schema;
+    }
+
+    /**
+     * True when nothing currently blocks this product from being published -
+     * lets the admin edit screen disable the publish button and list the
+     * reasons up front, same UX pattern as Category::canBeDeleted().
+     */
+    public function canBePublished(): bool
+    {
+        return $this->publicationBlockers() === [];
+    }
+
+    /**
+     * Translation keys (not raw text) for every reason status can't become
+     * Published right now. Conditions 5/6 (an active variant, a primary
+     * image) are deliberately ALWAYS included - Batch 3.2-B builds variants
+     * and the image gallery, neither exists yet, so nothing can ever
+     * satisfy them before then. Not a bug: every product in this batch
+     * stays unpublishable by design until that batch lands.
+     *
+     * SEO (condition 4) reads the raw seoMetas() row directly, NOT
+     * seoMeta() - seoMeta() merges a custom row over defaultSeoTitle()/
+     * defaultSeoDescription() field-by-field, which means it ALWAYS
+     * returns a non-blank title (falls back to the translated name) even
+     * when no custom SeoMeta row was ever saved. Checking seoMeta()->title
+     * here would make this condition impossible to fail once condition 1
+     * passes - caught before shipping, not after (see Batch 3.2-A
+     * correction 3).
+     *
+     * @return list<string>
+     */
+    public function publicationBlockers(): array
+    {
+        $blockers = [];
+
+        $missingTranslation = collect(['ar', 'en'])->contains(
+            fn (string $locale) => blank($this->translate($locale)?->name) || blank($this->translate($locale)?->slug)
+        );
+
+        if ($missingTranslation) {
+            $blockers[] = 'errors.product_missing_translation';
+        }
+
+        $missingDescription = collect(['ar', 'en'])->contains(
+            fn (string $locale) => blank($this->translate($locale)?->description)
+        );
+
+        if ($missingDescription) {
+            $blockers[] = 'errors.product_missing_description';
+        }
+
+        if ($this->primary_category_id === null) {
+            $blockers[] = 'errors.product_missing_category';
+        }
+
+        $missingSeo = collect(['ar', 'en'])->contains(function (string $locale) {
+            $custom = $this->seoMetas()->where('locale', $locale)->first();
+
+            return blank($custom?->title) || blank($custom?->description);
+        });
+
+        if ($missingSeo) {
+            $blockers[] = 'errors.product_missing_seo';
+        }
+
+        // Deliberately unconditional until Batch 3.2-B - see docblock above.
+        $blockers[] = 'errors.product_missing_variant';
+        $blockers[] = 'errors.product_missing_primary_image';
+
+        return $blockers;
     }
 
     public function scopePublished(Builder $query): Builder
