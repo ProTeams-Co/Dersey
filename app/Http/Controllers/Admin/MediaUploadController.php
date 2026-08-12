@@ -26,7 +26,7 @@ class MediaUploadController
 {
     public function store(MediaUploadRequest $request): JsonResponse
     {
-        $file = $request->file('file');
+        $file = $request->file($request->fileFieldName());
         $id = Str::uuid()->toString().'.'.$file->getClientOriginalExtension();
 
         $path = $file->storeAs('tmp-uploads', $id, 'local');
