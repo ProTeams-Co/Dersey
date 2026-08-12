@@ -208,6 +208,7 @@ routes/
 
 - **`App\Support\Admin\AdminTable`** هي المحرك الوحيد لأي جدول في اللوحة — الترتيب/البحث/الفلترة/الترقيم/التصدير كلهم من نفس الاستعلام (`filteredQuery()`)، سواء الاستجابة JSON (Ajax) أو HTML (أول تحميل عبر `x-admin.table`). أي جدول جديد لازم يرث منها، مش يبني منطق بحث/ترتيب مستقل.
   - **البحث في الحقول المترجمة**: `translatedSearchColumns()` بيدوّر عبر علاقة `translations()` (من `HasTranslations`)، وبيطبّق نسخة SQL من قواعد `App\Support\Search\ArabicNormalizer` (توحيد الألف/الياء/التاء المربوطة عبر `REPLACE()` متداخلة) على العمود، ومصطلح البحث بيتطبّع فعليًا بنفس الكلاس قبل المقارنة. تجريد التشكيل مش متطبّق على العمود عمدًا (النصوص المخزنة عمليًا من غير تشكيل).
+  - **الفرز على عمود مترجَم**: عمود بعلامة `'translatable' => true` مع `'sortable' => true` بيخلّي `applyTranslatedSort()` يعمل `LEFT JOIN` تلقائي على جدول الترجمة (فلتر الـ locale في الـ `ON` مش `WHERE` — عشان يفضل LEFT فعليًا، الصف اللي من غير ترجمة بيفضل ظاهر) بدل `orderBy()` عادي على عمود مش موجود في الجدول الأساسي أصلًا (كان بيرمي `Unknown column` على MySQL — راجع قسم 18).
   - **تصدير CSV**: مباشر (streamed) لو عدد الصفوف ≤ 1000، وإلا `ExportAdminTableJob` (queued) بيكتب الملف على قرص `local` (مش `private` — `private` مبني على S3/R2 وبيانات الاعتماد فاضية في التطوير المحلي؛ لما R2 يتظبط في الإنتاج القرار ده محتاج مراجعة).
 - **`App\Http\Controllers\Admin\AdminController`** — base class لأي resource controller جديد (index/create/store/edit/update/destroy/bulkDestroy)، route params بالـ id مباشر مش route-model-binding عشان يفضل عام. أي domain exception بتتطلع من `destroy()` (زي `CategoryHasDependentsException`) **من غير try/catch** — الـ exception بترندر نفسها.
 - ⚠️ **Authorization في اللوحة لازم يمر على `AdminController::authorize()`**، مش `AuthorizesRequests` الافتراضي مباشرة — الافتراضي بيقرا المستخدم من الـ guard الافتراضي (`web`) مش `admin`، فهيرفض كل حاجة صامت. لو عملت controller برّه `AdminController` واحتجت authorize، استخدم `Gate::forUser(Auth::guard('admin')->user())` بنفس المنطق.
@@ -219,3 +220,21 @@ routes/
 - **FilePond و CKEditor 5 لازم يتحمّلوا بـ dynamic import**، مش جوه `admin.js` الأساسي — نفس قاعدة GSAP/Lenis في المتجر (قسم 13) بالظبط. الحزمة الأساسية لازم تفضل صغيرة (~38KB gzip)، والمكتبات التقيلة (FilePond ~43KB، CKEditor ~525KB gzip) تتحمّل بس لما `[data-media-picker]`/`[data-editor]` موجودين في الصفحة.
 - **رفع الملفات المؤقت** (`MediaUploadController`, قبل ما أي resource يرتبط بيه فعليًا) بيتحقق من النوع الحقيقي (`image`/`mimes:` — فحص محتوى حقيقي عبر fileinfo مش امتداد الملف)، وبيتخزن على قرص `local` تحت `tmp-uploads/` — مش `media`/R2، لحد ما resource حقيقي يرتبط بالملف المرفوع.
 - **إنشاء حساب أدمن جديد**: من داخل اللوحة لسه مش موجود (index-only دلوقتي، Batch 3.0) — الطريقة الوحيدة هي `php artisan admin:create` (تفاعلي أو بـ `--name`/`--email`/`--password`/`--role`). ممنوع تسجيل حساب ذاتي من أي مكان.
+
+## 18. قواعد الاختبارات
+
+- **الاختبارات بتشتغل على SQLite افتراضيًا (`phpunit.xml`, `:memory:`) — ده مش ضمان لسلوك MySQL.** SQLite بتتساهل في حاجات MySQL بترفضها، وده مش افتراض نظري — كل الحالات دي اتصادفت فعليًا في Batch 3.1:
+  - فرز (`ORDER BY`) على عمود مش موجود في الجدول نفسه (زي عمود مترجَم على جدول `{model}_translations`) بيعدي بصمت على SQLite لو الاستعلام فيه `LIMIT`، بينما MySQL بيرمي `SQLSTATE[42S22]: Unknown column` صريح.
+  - `Schema::fullText()` مالهاش دعم خالص على SQLite (بترمي `RuntimeException`) — الفهرس بيتشال بالكامل من الـ migration على بيئة الاختبار (`if (driver !== 'sqlite')`, راجع `create_product_translations_table`). يعني أي اختبار بيعتمد على بحث FULLTEXT لازم يشتغل على MySQL فعليًا، وإلا هيفشل (أو الأخطر: يتخطّى بصمت من غير ما يتحقق من حاجة).
+  - InnoDB (MySQL) بيحدّث فهرس الـ FULLTEXT بس لما الـ transaction اللي عمل الـ INSERT يتعمله commit فعليًا — و`RefreshDatabase` بيلف كل اختبار في transaction بترجع rollback في الآخر، يعني الفهرس عمليًا **مبيتحدّثش خالص** جوه اختبار بيستخدم `RefreshDatabase`. أي اختبار FULLTEXT لازم يستخدم `Illuminate\Foundation\Testing\DatabaseMigrations` بدل `RefreshDatabase`.
+  - بحث FULLTEXT الافتراضي (`NATURAL LANGUAGE MODE`) بيستبعد أي كلمة موجودة في أكتر من 50% من صفوف الجدول (بيعتبرها stopword) — على جدول صغير زي في الاختبارات ده بيحصل بسهولة شديدة. استخدم `['mode' => 'boolean']` عشان تتجنّب السلوك ده.
+- **أي كود بيلمس SQL خام، joins، قيود (unique/FK)، أو FULLTEXT لازم يتأكد على MySQL فعليًا قبل ما يتقفل** — السويت الافتراضي على SQLite مش كفاية دليل.
+- **بيئة اختبار MySQL منفصلة**: `phpunit.mysql.xml` بيوصّل على قاعدة `dersey_testing` — منفصلة تمامًا عن `dersey` بتاعة التطوير (`RefreshDatabase`/`DatabaseMigrations` بيمسحوا/يعيدوا بناء الجداول في كل تشغيلة، فمينفعش تتوجّه على قاعدة فيها بيانات حقيقية). تتعمل مرة واحدة بس:
+  ```bash
+  mysql -u root -e "CREATE DATABASE IF NOT EXISTS dersey_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+  ```
+- **الاختبارات "الحرجة"** (فرز على أعمدة مترجَمة، قيود unique عبر اللغات، FULLTEXT، أي join يدوي) متعلَّمة بـ Pest group باسم `mysql-critical`. تتشغّل بـ:
+  ```bash
+  composer test:mysql
+  ```
+  (بيشغّل `vendor/bin/pest -c phpunit.mysql.xml --group=mysql-critical` بس، مش السويت كله، عشان يفضل سريع وما يبطّاش دورة التطوير العادية). أي اختبار جديد بيلمس نفس الفئات دي (SQL خام/joins/قيود/FULLTEXT) لازم يتعلّم `->group('mysql-critical')` زيهم بالظبط.
