@@ -14,6 +14,8 @@ import AdminForm from './admin/form';
 import Media from './admin/media';
 import Editor from './admin/editor';
 import Layout from './admin/layout';
+import CategoryTree from './admin/category-tree';
+import Repeater from './admin/repeater';
 
 $(function () {
     Toast.init();
@@ -29,6 +31,8 @@ $(function () {
     Table.init();
     Media.init();
     Editor.init();
+    CategoryTree.init();
+    Repeater.init();
 
     Events.emit('admin:ready');
 });
