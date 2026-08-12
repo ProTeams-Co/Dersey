@@ -26,6 +26,7 @@ class ProductFactory extends Factory
 
         return [
             'brand_id' => null,
+            'primary_category_id' => null,
             'sku' => strtoupper(fake()->unique()->bothify('SKU-#####-???')),
             'base_price' => $basePrice,
             'compare_at_price' => null,

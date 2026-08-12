@@ -48,6 +48,7 @@ class ProductSeeder extends Seeder
                         'gender' => $gender,
                         'brand_id' => $brands->random(),
                         'is_new' => $index % 4 === 0,
+                        'primary_category_id' => $leaf->id,
                     ]);
 
                 $product->categories()->attach($leaf->id);
