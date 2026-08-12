@@ -3,13 +3,23 @@
 namespace App\Models;
 
 use App\Enums\AttributeType;
+use App\Observers\AttributeObserver;
 use App\Support\Traits\HasTranslations;
 use Database\Factories\AttributeFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * AttributeObserver added in Batch 3.1 to block changing `is_variant` once
+ * any of this attribute's values are in use by a product variant - before
+ * this, nothing prevented it, which would silently break
+ * ProductVariantValueObserver's own is_variant check for every variant
+ * already using one of those values.
+ */
+#[ObservedBy([AttributeObserver::class])]
 class Attribute extends Model
 {
     /** @use HasFactory<AttributeFactory> */
@@ -57,5 +67,10 @@ class Attribute extends Model
     public function scopeVariant(Builder $query): Builder
     {
         return $query->where('is_variant', true);
+    }
+
+    public function isUsedByVariants(): bool
+    {
+        return $this->values()->whereHas('variantValues')->exists();
     }
 }
