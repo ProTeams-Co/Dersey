@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\BrandsController;
 use App\Http\Controllers\Admin\CategoriesController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MediaUploadController;
+use App\Http\Controllers\Admin\ProductsController;
 use Illuminate\Support\Facades\Route;
 
 // This file is already registered under prefix('admin')->name('admin.') in
@@ -72,5 +73,26 @@ Route::middleware(['admin.auth', 'admin.active'])->group(function (): void {
         Route::get('{id}/edit', [AttributesController::class, 'edit'])->name('edit');
         Route::put('{id}', [AttributesController::class, 'update'])->name('update');
         Route::delete('{id}', [AttributesController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('products')->name('products.')->group(function (): void {
+        Route::get('/', [ProductsController::class, 'index'])->name('index');
+        Route::get('create', [ProductsController::class, 'create'])->name('create');
+        Route::post('/', [ProductsController::class, 'store'])->name('store');
+        // Matches BrandsController's own bulk route exactly (path AND
+        // name) - the only other AdminTable screen with a real bulk-route
+        // precedent (Categories/Attributes have no bulkActions() at all, so
+        // no route to compare against). admin/table.js's shared bulk-action
+        // button hardcodes "{table-url}/bulk-action", so this is also the
+        // only path that actually works from the browser.
+        Route::post('bulk-action', [ProductsController::class, 'bulkAction'])->name('bulk-action');
+        Route::get('sku-check', [ProductsController::class, 'skuCheck'])->name('sku-check');
+        Route::get('{id}/edit', [ProductsController::class, 'edit'])->name('edit');
+        Route::put('{id}', [ProductsController::class, 'update'])->name('update');
+        Route::delete('{id}', [ProductsController::class, 'destroy'])->name('destroy');
+        // withTrashed() only here, per spec - every other products.* route
+        // resolves through the default (non-trashed) scope.
+        Route::post('{id}/restore', [ProductsController::class, 'restore'])->name('restore');
+        Route::post('{id}/status', [ProductsController::class, 'status'])->name('status');
     });
 });
