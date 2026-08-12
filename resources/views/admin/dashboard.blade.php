@@ -69,37 +69,3 @@
         </x-admin.card>
     </x-admin.page>
 @endsection
-
-@push('scripts')
-    <script type="module">
-        $(function () {
-            const canvas = document.getElementById('admin-sales-chart');
-            if (!canvas) return;
-
-            import('chart.js/auto').then(({ default: Chart }) => {
-                // Canvas 2D can't resolve CSS custom properties itself
-                // (var(--color-primary) means nothing to strokeStyle) -
-                // the computed value has to be read out as a real color
-                // string first.
-                const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
-
-                new Chart(canvas, {
-                    type: 'line',
-                    data: {
-                        labels: JSON.parse(canvas.dataset.chartLabels),
-                        datasets: [{
-                            data: JSON.parse(canvas.dataset.chartValues),
-                            borderColor: primaryColor,
-                            tension: 0.35,
-                            fill: false,
-                        }],
-                    },
-                    options: {
-                        plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true } },
-                    },
-                });
-            });
-        });
-    </script>
-@endpush
