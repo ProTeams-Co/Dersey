@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection as BaseCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Kalnoy\Nestedset\NodeTrait;
 
@@ -176,13 +178,32 @@ class Category extends Model
      */
     public function deletionBlockers(): array
     {
+        return $this->deletionBlockersFor(
+            $this->children()->exists(),
+            $this->products()->exists(),
+        );
+    }
+
+    /**
+     * Same blocker keys as deletionBlockers(), but takes both facts as
+     * already-known booleans instead of running its own two exists()
+     * queries - added when the admin tree view (Batch 3.1) needed this for
+     * every visible node without turning into a 2-queries-per-node N+1.
+     * The tree view already knows "has children" for free (toTree()'s
+     * relation is loaded in memory) and "has direct products" from one bulk
+     * query for the whole tree - see CategoriesController::index().
+     *
+     * @return list<string>
+     */
+    public function deletionBlockersFor(bool $hasChildren, bool $hasDirectProducts): array
+    {
         $blockers = [];
 
-        if ($this->children()->exists()) {
+        if ($hasChildren) {
             $blockers[] = 'errors.category_has_children';
         }
 
-        if ($this->products()->exists()) {
+        if ($hasDirectProducts) {
             $blockers[] = 'errors.category_has_products';
         }
 
@@ -205,5 +226,32 @@ class Category extends Model
             'categories',
             fn (Builder $query) => $query->whereIn('categories.id', $categoryIds)
         )->count();
+    }
+
+    /**
+     * The same "products in this category and every descendant, counted
+     * once" as descendantProductsCount() - but for every category at
+     * once, in exactly 2 queries total, instead of one call to
+     * descendantProductsCount() per node (N+1 for a whole tree/table
+     * render, added in Batch 3.1 when the admin category screens needed
+     * this for every visible row without violating the project's own
+     * fixed-query-count rule). Keyed by category id.
+     *
+     * @return BaseCollection<int, int>
+     */
+    public static function cumulativeProductCounts(): BaseCollection
+    {
+        $categories = static::query()->get(['id', '_lft', '_rgt']);
+        $pivotRows = DB::table('category_product')->select('category_id', 'product_id')->get();
+
+        return $categories->mapWithKeys(function (self $node) use ($categories, $pivotRows) {
+            $subtreeIds = $categories
+                ->filter(fn (self $c) => $c->_lft >= $node->_lft && $c->_rgt <= $node->_rgt)
+                ->pluck('id');
+
+            $count = $pivotRows->whereIn('category_id', $subtreeIds)->pluck('product_id')->unique()->count();
+
+            return [$node->id => $count];
+        });
     }
 }
