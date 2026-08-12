@@ -29,5 +29,13 @@ return [
     'redirect_loop' => 'An unsafe redirect loop was detected and stopped.',
     'attribute_value_in_use' => 'This value is currently used by product variants. Remove that link first.',
     'attribute_is_variant_locked' => 'This attribute is used by product variants - its "variant" setting cannot be changed.',
+    'product_missing_translation' => 'Name and slug must be set in both Arabic and English.',
+    'product_missing_description' => 'The full description must be set in both Arabic and English.',
+    'product_missing_category' => 'The product must be assigned to at least one category.',
+    'product_missing_seo' => 'SEO title and description must be set in both languages.',
+    'product_missing_variant' => 'The product must have at least one active variant (available from Batch 3.2-B).',
+    'product_missing_primary_image' => 'The product must have a primary image (available from Batch 3.2-B).',
+    'product_publish_not_allowed' => 'This product cannot be published yet - check the missing requirements.',
+    'attribute_value_must_be_non_variant' => 'This value belongs to a variant-generating attribute (e.g. size or color) - those values are only set through product variants, not as a general product attribute.',
 
 ];
