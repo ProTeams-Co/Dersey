@@ -28,8 +28,12 @@ async function initPicker(el) {
 
     if (!$input.length) return;
 
+    // `filepond` itself has no default export (only named exports like
+    // create()/registerPlugin() - confirmed by reading its ESM build), so
+    // this one is the whole module namespace object, not { default: ... }
+    // like the three plugins below (which each do `export default plugin`).
     const [
-        { default: FilePond },
+        FilePond,
         { default: FilePondPluginImagePreview },
         { default: FilePondPluginImageCrop },
         { default: FilePondPluginFileValidateType },
@@ -58,13 +62,23 @@ async function initPicker(el) {
         server: {
             process: {
                 url: uploadUrl,
-                headers: { 'X-CSRF-TOKEN': csrfToken() },
+                // Accept: application/json - without it, a validation
+                // failure (wrong type, too large, ...) makes Laravel render
+                // its HTML error page instead of a JSON body, and onload's
+                // JSON.parse() below throws a confusing "Unexpected token
+                // '<'" instead of surfacing the actual validation message.
+                headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+                // MediaUploadController returns JSON ({id, url}), but
+                // FilePond's default expects the response body itself to
+                // be the plain server id - this pulls just the id out so
+                // that's what ends up as the field's submitted value.
+                onload: (response) => JSON.parse(response).id,
             },
             revert: (uniqueFileId, load, error) => {
                 $.ajax({
                     url: revertUrlTemplate.replace('__ID__', uniqueFileId),
                     method: 'DELETE',
-                    headers: { 'X-CSRF-TOKEN': csrfToken() },
+                    headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
                 })
                     .done(() => load())
                     .fail(() => error('revert failed'));
