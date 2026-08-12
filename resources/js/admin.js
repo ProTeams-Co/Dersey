@@ -16,6 +16,8 @@ import Editor from './admin/editor';
 import Layout from './admin/layout';
 import CategoryTree from './admin/category-tree';
 import Repeater from './admin/repeater';
+import ProductForm from './admin/product-form';
+import DashboardChart from './admin/dashboard-chart';
 
 $(function () {
     Toast.init();
@@ -33,6 +35,8 @@ $(function () {
     Editor.init();
     CategoryTree.init();
     Repeater.init();
+    ProductForm.init();
+    DashboardChart.init();
 
     Events.emit('admin:ready');
 });
