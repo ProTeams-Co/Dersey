@@ -59,7 +59,17 @@ function submit($form) {
             // exactly what invited clicking Save again. Non-admin
             // data-ajax-form users (storefront) simply never send this key,
             // so they're unaffected.
-            if (response?.redirect) {
+            //
+            // data-no-redirect (Batch 3.2-A): a form that must stay on the
+            // page after a successful AJAX save - the product edit
+            // screen's per-tab forms all submit to the same
+            // admin.products.update, which still returns a `redirect` to
+            // the index (every AdminController::respond() call does), but
+            // navigating away after saving just the "SEO" tab would undo
+            // the entire point of a tabbed partial save. Opt-in per form,
+            // so every other admin screen's existing redirect-after-save
+            // behavior (Brand/Category/Attribute) is completely unchanged.
+            if (response?.redirect && !$form.is('[data-no-redirect]')) {
                 window.location.href = response.redirect;
             }
         })

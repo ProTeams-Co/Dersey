@@ -57,13 +57,23 @@ class TempUploadAdapter {
 async function initEditor(el) {
     const $el = $(el);
     const uploadUrl = $el.data('editorUploadUrl');
+    // Batch 3.2-A: a translatable-tabs description field needs the SAME
+    // editor instance's admin-facing toolbar in Arabic (this panel is
+    // Arabic-only, CLAUDE.md) but its CONTENT direction/language must
+    // follow whichever locale tab it belongs to - an English description
+    // typed into an RTL-content editor reads backwards. Defaults to 'ar'
+    // (CKEditor 5's `language` config also accepts this {ui, content}
+    // object form, not just a bare string) so every other [data-editor]
+    // usage that never sets this attribute keeps behaving exactly as
+    // before.
+    const contentLang = $el.data('editorContentLang') || 'ar';
 
     const [ckeditor] = await Promise.all([import('ckeditor5'), import('ckeditor5/ckeditor5.css')]);
     const { ClassicEditor, Essentials, Paragraph, Bold, Italic, Link, List, Heading, BlockQuote, Image, ImageUpload, ImageToolbar, ImageStyle } = ckeditor;
 
     const editor = await ClassicEditor.create(el, {
         licenseKey: 'GPL',
-        language: 'ar',
+        language: { ui: 'ar', content: contentLang },
         plugins: [Essentials, Paragraph, Bold, Italic, Link, List, Heading, BlockQuote, Image, ImageUpload, ImageToolbar, ImageStyle],
         toolbar: ['heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'uploadImage', 'undo', 'redo'],
         image: {
@@ -82,4 +92,10 @@ function init() {
     document.querySelectorAll('[data-editor]').forEach(initEditor);
 }
 
-export default { init };
+// initEditor exported (init()'s own [data-editor] bulk-scan behavior is
+// completely unchanged) so a caller that needs it deferred past page load -
+// admin/product-form.js's translations tab, which must not import CKEditor
+// at all until that tab is actually opened, not just "not in the base
+// bundle" - can initialize one element on demand instead of relying on the
+// bulk scan finding it already in the DOM at load time.
+export default { init, initEditor };
