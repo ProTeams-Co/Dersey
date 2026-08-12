@@ -40,6 +40,8 @@ return [
         'children' => [
             ['key' => 'products', 'label' => 'admin.menu.products', 'route' => 'admin.products.index', 'permission' => 'products.view'],
             ['key' => 'categories', 'label' => 'admin.menu.categories', 'route' => 'admin.categories.index', 'permission' => 'categories.view'],
+            ['key' => 'brands', 'label' => 'admin.menu.brands', 'route' => 'admin.brands.index', 'permission' => 'brands.view'],
+            ['key' => 'attributes', 'label' => 'admin.menu.attributes', 'route' => 'admin.attributes.index', 'permission' => 'attributes.view'],
             ['key' => 'inventory', 'label' => 'admin.menu.inventory', 'route' => 'admin.inventory.index', 'permission' => 'inventory.view'],
         ],
     ],

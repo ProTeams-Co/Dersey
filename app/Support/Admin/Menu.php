@@ -2,6 +2,7 @@
 
 namespace App\Support\Admin;
 
+use Illuminate\Contracts\Auth\Access\Authorizable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -67,6 +68,10 @@ class Menu
 
         $admin = Auth::guard('admin')->user();
 
-        return $admin !== null && $admin->can($permission);
+        if (! $admin instanceof Authorizable) {
+            return false;
+        }
+
+        return $admin->can($permission);
     }
 }
