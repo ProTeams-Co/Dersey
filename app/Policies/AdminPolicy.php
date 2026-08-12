@@ -28,7 +28,14 @@ class AdminPolicy
         return $actor->can('admins.create');
     }
 
-    public function update(Admin $actor, Admin $target): bool
+    /**
+     * $target is nullable - AdminController::bulkAction()'s own pre-check
+     * (before the per-row loop) authorizes against the resource *class*,
+     * not a specific row (matching viewAny/create's shape), so Laravel
+     * calls this with only $actor in that case; the per-row check inside
+     * the loop passes a real instance.
+     */
+    public function update(Admin $actor, ?Admin $target = null): bool
     {
         return $actor->can('admins.update');
     }
@@ -36,10 +43,13 @@ class AdminPolicy
     /**
      * Blocks self-deletion outright, on top of the permission check - an
      * admin locking themselves out by deleting/deactivating their own only
-     * account is a real, easy-to-hit mistake, not a hypothetical.
+     * account is a real, easy-to-hit mistake, not a hypothetical. A null
+     * $target (the class-level pre-check, see update()'s docblock) has no
+     * specific admin to compare against yet, so it can't be the "self"
+     * case - only a real instance can fail this check.
      */
-    public function delete(Admin $actor, Admin $target): bool
+    public function delete(Admin $actor, ?Admin $target = null): bool
     {
-        return $actor->can('admins.delete') && $actor->isNot($target);
+        return $actor->can('admins.delete') && ($target === null || $actor->isNot($target));
     }
 }
