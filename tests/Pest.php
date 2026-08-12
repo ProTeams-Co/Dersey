@@ -1,5 +1,10 @@
 <?php
 
+use App\Enums\AdminStatus;
+use App\Models\Admin;
+use Database\Seeders\RolePermissionSeeder;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,7 +16,7 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
+pest()->extend(TestCase::class)
  // ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
     ->in('Feature');
 
@@ -41,7 +46,18 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Shared by every Batch 3.1 admin CRUD test (Brands/Categories/Attributes) -
+ * seeds the real role/permission set via RolePermissionSeeder rather than
+ * faking permissions, so a test failure here would also catch a seeder
+ * regression, not just a controller one.
+ */
+function actingAdminWithRole(string $role = 'super-admin'): Admin
 {
-    // ..
+    test()->seed(RolePermissionSeeder::class);
+    $admin = Admin::factory()->create(['status' => AdminStatus::Active]);
+    $admin->assignRole($role);
+    test()->actingAs($admin, 'admin');
+
+    return $admin;
 }
