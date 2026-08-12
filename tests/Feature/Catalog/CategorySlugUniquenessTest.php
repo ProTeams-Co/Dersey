@@ -5,7 +5,7 @@ use App\Models\CategoryTranslation;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class)->group('mysql-critical');
 
 it('rejects a duplicate slug within the same locale but allows the same slug string across different locales', function () {
     $categoryA = Category::create(['is_active' => true]);

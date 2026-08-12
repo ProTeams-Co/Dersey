@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class)->group('mysql-critical');
 
 /**
  * A minimal, test-only AdminTable over Category - exercises plain-column
