@@ -23,5 +23,6 @@ return [
     'admin_sidebar_collapse' => 'Collapse sidebar',
     'admin_sidebar_expand' => 'Expand sidebar',
     'admin_table_selected_count' => ':count selected',
+    'admin_table_confirm_row_action' => 'Are you sure you want to run this action?',
 
 ];

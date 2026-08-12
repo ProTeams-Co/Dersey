@@ -23,5 +23,6 @@ return [
     'admin_sidebar_collapse' => 'طي القائمة الجانبية',
     'admin_sidebar_expand' => 'توسيع القائمة الجانبية',
     'admin_table_selected_count' => 'محدد :count',
+    'admin_table_confirm_row_action' => 'متأكد إنك عايز تنفّذ الإجراء ده؟',
 
 ];
