@@ -126,6 +126,10 @@ Hand-built from scratch (Batch 3.0) — no Filament, no Livewire, no admin scaff
 - **Search on translated fields is normalization-aware at the SQL level** — `AdminTable::translatedSearchColumns()` searches through a model's `{model}_translations` table via a nested-`REPLACE()` SQL expression mirroring `ArabicNormalizer`'s alef/ya/ta-marbuta rules, so a search for "فُستان" matches a stored "فستان" without a separate normalized column.
 - **CKEditor 5 and FilePond are dynamically imported, not bundled** — `admin/editor.js`/`admin/media.js` only fetch them when a `[data-editor]`/`[data-media-picker]` element actually exists on the page, the same pattern as the storefront's GSAP/Lenis. The base `admin.js` payload is ~38 kB gzip; CKEditor 5 alone is ~525 kB gzip, loaded only where it's actually used.
 - **Two guard-resolution bugs were caught and fixed while building this**: `AuthorizesRequests`' default `authorize()` and spatie/laravel-activitylog's default causer resolver both read the *default* (`web`) guard's user, which is always null on an admin request (`admin` is a completely separate guard/session) — `AdminController::authorize()` and a `CauserResolver::resolveUsing()` override in `AppServiceProvider` fix both. A third, unrelated bug surfaced in the same pass: `HasDefaultActivityLog` (since Batch 2.1) never called `logFillable()`/`logAll()`, so **automatic activity logging had been a silent no-op for every model in the project** — fixed by adding `->logFillable()`.
+- **Categories, Brands & Attributes (Batch 3.1)** — the first real test of `AdminTable`/`AdminController` against three very different screens:
+  - **Category tree**: a genuine recursive Blade view with drag-and-drop re-parenting (SortableJS, dynamically imported), not `AdminTable`'s flat/paginated engine — that engine is used only for CSV export and the "search across the whole tree" fallback (flattened results, no ancestor context). A real N+1 was caught and fixed here: the tree's delete-button state (`Category::canBeDeleted()`) was running 2 queries per visible node (204 queries at 100 categories vs. 5 at any size after the fix).
+  - **Sorting on a translated column** (e.g. a category/brand/attribute's `name`, which lives on its own `{model}_translations` table) now auto-joins that table (`AdminTable::applyTranslatedSort()`) filtered to the current locale — a plain `orderBy()` on a column that doesn't exist on the base table used to throw `Unknown column` on MySQL, silently masked on SQLite (which tolerates it as a no-op when a `LIMIT` is present). The join is `LEFT`, with the locale filter in the `ON` clause, not `WHERE` — a row with no translation in the current locale still shows.
+  - **A generic add/remove/drag-reorder repeater** (`admin/repeater.js`) for attribute values living on their own attribute's edit page — the Blade component existed since Batch 3.0 but had no JS behavior at all until this batch's first real consumer.
 
 ## ⚠️ Engineering Constraints
 
@@ -176,6 +180,17 @@ php artisan serve
 
 `migrate:fresh --seed` builds a complete, demo-ready database — geography, catalog, orders, pages, blog posts, reviews, banners, FAQs, search logs, redirects — in **~30 seconds**, safely re-runnable (every seeder guards against duplicate rows on a second run).
 
+### Testing
+
+The default suite (`composer test` / `php artisan test`) runs against SQLite in-memory — fast, but **not a guarantee of MySQL behavior** (see [Known Issues](#known-issues--environment-notes)). Tests that touch raw SQL, joins, DB-level constraints, or `FULLTEXT` are additionally tagged with a `mysql-critical` Pest group and verified against a real MySQL connection:
+
+```bash
+# one-time setup — a database dedicated to tests, separate from dev data:
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS dersey_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+
+composer test:mysql   # runs only the mysql-critical group, against phpunit.mysql.xml
+```
+
 Seeding creates the 27 governorates/165 cities, base settings, and the admin roles/permissions. The default super-admin account is **not** created unless `SUPER_ADMIN_EMAIL`/`SUPER_ADMIN_PASSWORD` are set in `.env` first (see `.env.example` — no real credentials are ever committed); `RolePermissionSeeder` skips account creation and prints a warning if either is left empty.
 
 ### Environment Variables
@@ -212,9 +227,10 @@ Key names only — see `.env.example` for the full list, all sensitive values sh
 | Phase 2 — Content, SEO & Reviews (Batch 2.5) | ✅ Complete |
 | **Phase 2** | **✅ Complete** |
 | Phase 3 — Admin Panel Core (Batch 3.0) | ✅ Complete |
+| Phase 3 — Categories, Brands & Attributes (Batch 3.1) | ✅ Complete |
 | **Phase 3** | **🔄 In Progress** |
 
-Current test suite: **124 tests, 325 assertions** passing (`php artisan test`). Repository history: **143 commits**.
+Current test suite: **161 tests, 429 assertions** passing on SQLite (`php artisan test`), plus **10 tests** in the `mysql-critical` group verified against a real MySQL connection (`composer test:mysql`). Repository history: **155 commits**.
 
 ## Known Issues / Environment Notes
 
@@ -232,7 +248,8 @@ Current test suite: **124 tests, 325 assertions** passing (`php artisan test`). 
 - **Permissions exist for resources with no tables yet** (`products.*`, `orders.*`, ...) — deliberately seeded ahead of the tables/UI that will actually enforce them, which land in later Phase 2 batches.
 - **`kalnoy/nestedset` defines `parent_id` as 32-bit (`unsignedInteger`) while `categories.id` is 64-bit (`unsignedBigInteger`)** — the package's own `nestedSet()` macro caused a real FK failure (`errno 150`) on `categories.parent_id`; `_lft`/`_rgt`/`parent_id` are defined by hand in the migration instead, with `parent_id` matching `id`'s width.
 - **The installed `kalnoy/nestedset` version has no `depth` column** — only `_lft`/`_rgt`, with depth computed via `->withDepth()` at query time; confirmed by reading the package source directly, not assumed from its docs.
-- **SQLite has no `fullText()` index support** — the test suite's `DB_CONNECTION` (`phpunit.xml`) is SQLite in-memory, so `product_translations`' FULLTEXT index is skipped there (`Schema::getConnection()->getDriverName() !== 'sqlite'`); MySQL/production is unaffected.
+- **SQLite passing is not proof of MySQL behavior** — the default test suite (`phpunit.xml`) runs on SQLite in-memory, which is more forgiving than MySQL (this project's real driver) in ways that have actually bitten this codebase, not just in theory: sorting by a column that doesn't exist on the table silently no-ops on SQLite when a `LIMIT` is present, but throws `Unknown column` on MySQL; `fullText()` indexes can't be created on SQLite at all (skipped entirely in the affected migrations); and InnoDB only updates a `FULLTEXT` index once the inserting transaction *commits*, which never happens under `RefreshDatabase`'s per-test rollback (that specific test uses `DatabaseMigrations` instead). Anything touching raw SQL, joins, or DB-level constraints needs to be verified with `composer test:mysql`, not assumed safe from the default run — see [Testing](#testing).
+- **Category tree search returns flattened results, without ancestor context** — searching the admin category tree (`AdminTable`'s fallback mode for that screen) shows only the matching rows, not their parent chain still nested; a deliberate simplification over the more complex "matches plus ancestors, still nested" alternative, since it's an occasional lookup, not the primary way the screen is browsed.
 - **`ProductVariant::available_quantity` is a computed accessor (`stock_quantity - reserved_quantity`), not a column** — it cannot be used in `WHERE`/`ORDER BY`; an "available only" SQL filter (e.g. Batch 4's category filters) needs `whereRaw('stock_quantity - reserved_quantity > 0')` instead.
 - **`InventoryService::commit()` always logs `InventoryMovementType::Out`** — it currently covers both "sold to a customer" and any future "returned from a customer" case; the distinction is meant to come from `reference_type`/`reference_id` once returns exist (Batch 2.4), not a new enum case that would change what `Out` means.
 - **A product that's actually been ordered can never be hard-deleted** — `inventory_movements.variant_id` is `restrictOnDelete()` to protect the audit trail, and `product_variants.product_id` cascades from the product, so force-deleting an ordered product's variant is blocked by that restrict rule. This is intentional (approved trade-off), not a bug; the "order survives product deletion" scenario is tested with a variant that was deliberately never committed through checkout.
