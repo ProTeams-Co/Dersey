@@ -73,6 +73,11 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "test:mysql": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan config:clear --ansi",
+            "vendor/bin/pest -c phpunit.mysql.xml --group=mysql-critical"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

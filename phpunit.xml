@@ -10,6 +10,20 @@
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+            <!--
+                MySqlOnly: tests that genuinely cannot run on SQLite, not
+                just "slower there" - e.g. ProductTranslationFullTextTest
+                needs Illuminate\Foundation\Testing\DatabaseMigrations (a
+                real commit for InnoDB to update its FULLTEXT index, which
+                RefreshDatabase's per-test rollback never provides), and
+                DatabaseMigrations' down()-migration teardown hits an
+                unrelated pre-existing SQLite incompatibility
+                (`ALTER TABLE ... DROP COLUMN` on an indexed column) that
+                RefreshDatabase never exercises since it doesn't roll back
+                the schema, only the data. See phpunit.mysql.xml / CLAUDE.md
+                §18 - this directory only runs under `composer test:mysql`.
+            -->
+            <exclude>tests/Feature/MySqlOnly</exclude>
         </testsuite>
     </testsuites>
     <source>
