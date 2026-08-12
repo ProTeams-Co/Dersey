@@ -27,5 +27,7 @@ return [
     'coupon_not_applicable' => 'Nothing in your cart qualifies for this discount.',
     'invalid_order_transition' => 'The order cannot change to that status.',
     'redirect_loop' => 'An unsafe redirect loop was detected and stopped.',
+    'attribute_value_in_use' => 'This value is currently used by product variants. Remove that link first.',
+    'attribute_is_variant_locked' => 'This attribute is used by product variants - its "variant" setting cannot be changed.',
 
 ];
