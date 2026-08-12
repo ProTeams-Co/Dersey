@@ -19,7 +19,13 @@ function clearErrors($form) {
 
 function renderErrors($form, errors) {
     Object.entries(errors).forEach(([field, messages]) => {
-        const $field = $form.find(`[name="${field}"]`);
+        // :not([type="hidden"]) — a boolean toggle field has TWO elements
+        // sharing the same name (the "0" fallback <input type="hidden">
+        // plus the real checkbox, see x-form.toggle's docblock); matching
+        // both meant .insertAfter() cloned the error <p> after each one,
+        // rendering the same message twice at two different, overlapping
+        // positions in the form.
+        const $field = $form.find(`[name="${field}"]`).not('[type="hidden"]');
         if (!$field.length) return;
 
         $field.attr('aria-invalid', 'true');
@@ -43,8 +49,19 @@ function submit($form) {
         data: $form.serialize(),
         $trigger: $form.find('[type="submit"]'),
     })
-        .done(() => {
-            $form.trigger('dersey:form-success');
+        .done((response) => {
+            $form.trigger('dersey:form-success', [response]);
+
+            // Admin CRUD responses (AdminController::respond()) carry a
+            // `redirect` target - without navigating there, a successful
+            // save just left the admin on the exact same form with no
+            // visible confirmation and a re-enabled Save button, which is
+            // exactly what invited clicking Save again. Non-admin
+            // data-ajax-form users (storefront) simply never send this key,
+            // so they're unaffected.
+            if (response?.redirect) {
+                window.location.href = response.redirect;
+            }
         })
         .fail((xhr) => {
             if (xhr.status === 422 && xhr.responseJSON?.errors) {

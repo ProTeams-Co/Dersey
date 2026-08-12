@@ -46,6 +46,20 @@
 
         <x-admin.confirm />
 
+        @if (session('status') || session('error'))
+            <script type="module">
+                window.Dersey.events.on('admin:ready', () => {
+                    @if (session('status'))
+                        window.Dersey.toast.success(@json(session('status')));
+                    @endif
+
+                    @if (session('error'))
+                        window.Dersey.toast.error(@json(session('error')));
+                    @endif
+                });
+            </script>
+        @endif
+
         @stack('scripts')
     </body>
 </html>
