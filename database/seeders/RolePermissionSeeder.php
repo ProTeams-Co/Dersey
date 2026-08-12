@@ -21,7 +21,7 @@ class RolePermissionSeeder extends Seeder
      * access-control data itself.
      */
     private const RESOURCES = [
-        'products', 'categories', 'orders', 'customers',
+        'products', 'categories', 'brands', 'attributes', 'orders', 'customers',
         'addresses', 'discounts', 'inventory', 'settings', 'admins', 'roles',
     ];
 
@@ -65,7 +65,7 @@ class RolePermissionSeeder extends Seeder
             fn (string $name) => str_starts_with($name, 'roles.') || str_starts_with($name, 'admins.')
         ));
 
-        $managerResources = ['products', 'categories', 'orders', 'customers', 'addresses', 'discounts', 'inventory'];
+        $managerResources = ['products', 'categories', 'brands', 'attributes', 'orders', 'customers', 'addresses', 'discounts', 'inventory'];
         $manager = Role::findOrCreate('manager', self::GUARD);
         $manager->syncPermissions($all->filter(function (string $name) use ($managerResources) {
             [$resource, $action] = explode('.', $name);
