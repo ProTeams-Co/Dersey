@@ -174,15 +174,17 @@
         </div>
 
         <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p class="text-sm text-muted">
+            <p class="text-sm text-muted" data-table-count>
                 {{ __('admin.table.showing', ['from' => $paginator->firstItem(), 'to' => $paginator->lastItem(), 'total' => $paginator->total()]) }}
             </p>
 
-            <x-ui.pagination
-                :current-page="$paginator->currentPage()"
-                :total-pages="$paginator->lastPage()"
-                :base-url="url()->current().'?'.http_build_query(request()->except('page'))"
-            />
+            <div data-table-pagination>
+                <x-ui.pagination
+                    :current-page="$paginator->currentPage()"
+                    :total-pages="$paginator->lastPage()"
+                    :base-url="url()->current().'?'.http_build_query(request()->except('page'))"
+                />
+            </div>
         </div>
     @endif
 </div>

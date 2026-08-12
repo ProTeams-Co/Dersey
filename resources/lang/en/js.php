@@ -24,5 +24,13 @@ return [
     'admin_sidebar_expand' => 'Expand sidebar',
     'admin_table_selected_count' => ':count selected',
     'admin_table_confirm_row_action' => 'Are you sure you want to run this action?',
+    'admin_table_showing' => 'Showing :from-:to of :total',
+    'admin_table_pagination_nav_label' => 'Pagination',
+    'admin_table_pagination_previous' => 'Previous',
+    'admin_table_pagination_next' => 'Next',
+    'admin_table_pagination_go_to_page' => 'Go to page :page',
+    'products_sku_checking' => 'Checking...',
+    'products_sku_available' => 'This SKU is available.',
+    'products_sku_taken' => 'This SKU is already taken.',
 
 ];

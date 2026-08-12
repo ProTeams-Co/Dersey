@@ -33,19 +33,22 @@ function fetchTable($root, url) {
         headers: { Accept: 'application/json' },
     })
         .done((data) => {
-            render($root, data);
+            render($root, data, url);
             window.history.pushState({}, '', url);
         })
         .always(() => $tbody.attr('aria-busy', 'false'));
 }
 
-function render($root, data) {
+function render($root, data, url) {
     const hasBulk = data.bulkActions && data.bulkActions.length > 0;
     const hasActions = data.rows.some((row) => row._actions && row._actions.length > 0);
 
     renderRows($root.find('[data-table-body]'), data.rows, data.columns, hasBulk, hasActions);
     renderSortIndicators($root, data.sort);
     renderCount($root, data.pagination);
+    // `url` (the one just fetched), not window.location.href - this runs
+    // before the pushState() below, so location is still the PREVIOUS page.
+    renderPagination($root, data.pagination, url);
     clearSelection($root);
 }
 
@@ -131,8 +134,101 @@ function renderSortIndicators($root, sort) {
 function renderCount($root, pagination) {
     const $count = $root.find('[data-table-count]');
     if ($count.length) {
-        $count.text(`${pagination.from}-${pagination.to} / ${pagination.total}`);
+        $count.text(
+            Ajax.lang('admin_table_showing', {
+                from: pagination.from,
+                to: pagination.to,
+                total: pagination.total,
+            })
+        );
     }
+}
+
+/**
+ * Mirrors x-ui.pagination.blade.php's own page-window algorithm (page 1,
+ * last page, and anything within 1 of current) so the Ajax-rendered nav
+ * looks identical to the server-rendered first load. Rebuilt from scratch
+ * on every response instead of patched in place - after an Ajax page
+ * change the current-page highlight and every page link's href need to
+ * change, not just the count text next to them.
+ */
+function paginationPages(currentPage, totalPages) {
+    const pages = [];
+
+    for (let page = 1; page <= totalPages; page++) {
+        if (page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) {
+            pages.push(page);
+        }
+    }
+
+    return pages;
+}
+
+function pageUrl(baseUrl, page) {
+    const url = new URL(baseUrl, window.location.origin);
+    url.searchParams.set('page', page);
+
+    return url.toString();
+}
+
+function renderPagination($root, pagination, currentUrl) {
+    const $container = $root.find('[data-table-pagination]');
+    if (!$container.length) return;
+
+    const $nav = $container.find('nav[aria-label]');
+    if (!$nav.length) return;
+
+    const { currentPage, lastPage } = pagination;
+    const $list = $('<ul>', { class: 'flex items-center gap-1 text-sm' });
+
+    const $prev = $('<a>', {
+        href: currentPage > 1 ? pageUrl(currentUrl, currentPage - 1) : '#',
+        text: Ajax.lang('admin_table_pagination_previous'),
+        class: `flex h-9 items-center justify-center rounded-lg px-3 text-ink transition-colors duration-150 ease-smooth hover:bg-surface motion-reduce:transition-none ${currentPage <= 1 ? 'pointer-events-none opacity-50' : ''}`,
+    });
+    if (currentPage <= 1) $prev.attr({ 'aria-disabled': 'true', tabindex: '-1' });
+    $list.append($('<li>').append($prev));
+
+    let previousPage = null;
+    paginationPages(currentPage, lastPage).forEach((page) => {
+        if (previousPage !== null && page - previousPage > 1) {
+            $list.append($('<li>', { class: 'px-1 text-muted', 'aria-hidden': 'true', html: '&hellip;' }));
+        }
+
+        const $li = $('<li>');
+
+        if (page === currentPage) {
+            $li.append(
+                $('<span>', {
+                    'aria-current': 'page',
+                    class: 'flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground',
+                    text: page,
+                })
+            );
+        } else {
+            $li.append(
+                $('<a>', {
+                    href: pageUrl(currentUrl, page),
+                    'aria-label': Ajax.lang('admin_table_pagination_go_to_page', { page }),
+                    class: 'flex h-9 w-9 items-center justify-center rounded-lg text-sm text-ink transition-colors duration-150 ease-smooth hover:bg-surface motion-reduce:transition-none',
+                    text: page,
+                })
+            );
+        }
+
+        $list.append($li);
+        previousPage = page;
+    });
+
+    const $next = $('<a>', {
+        href: currentPage < lastPage ? pageUrl(currentUrl, currentPage + 1) : '#',
+        text: Ajax.lang('admin_table_pagination_next'),
+        class: `flex h-9 items-center justify-center rounded-lg px-3 text-ink transition-colors duration-150 ease-smooth hover:bg-surface motion-reduce:transition-none ${currentPage >= lastPage ? 'pointer-events-none opacity-50' : ''}`,
+    });
+    if (currentPage >= lastPage) $next.attr({ 'aria-disabled': 'true', tabindex: '-1' });
+    $list.append($('<li>').append($next));
+
+    $nav.empty().append($list);
 }
 
 function clearSelection($root) {

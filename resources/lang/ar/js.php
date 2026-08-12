@@ -24,5 +24,13 @@ return [
     'admin_sidebar_expand' => 'توسيع القائمة الجانبية',
     'admin_table_selected_count' => 'محدد :count',
     'admin_table_confirm_row_action' => 'متأكد إنك عايز تنفّذ الإجراء ده؟',
+    'admin_table_showing' => 'عرض :from-:to من :total',
+    'admin_table_pagination_nav_label' => 'الصفحات',
+    'admin_table_pagination_previous' => 'السابق',
+    'admin_table_pagination_next' => 'التالي',
+    'admin_table_pagination_go_to_page' => 'اذهب للصفحة :page',
+    'products_sku_checking' => 'جاري التحقق...',
+    'products_sku_available' => 'الـ SKU ده متاح.',
+    'products_sku_taken' => 'الـ SKU ده مستخدم قبل كده.',
 
 ];

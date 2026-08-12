@@ -12,7 +12,12 @@
         ->filter(fn ($page) => $page === 1 || $page === $totalPages || abs($page - $currentPage) <= 1)
         ->values();
 
-    $urlFor = fn ($page) => $baseUrl.(str_contains($baseUrl, '?') ? '&' : '?').'page='.$page;
+    // rtrim first - $baseUrl can arrive as "...?" with nothing after it (no
+    // active filters/search/sort), which str_contains('?') alone would
+    // still treat as "already has a query string" and produce a stray
+    // leading "&page=2" instead of "?page=2".
+    $normalizedBase = rtrim($baseUrl, '?&');
+    $urlFor = fn ($page) => $normalizedBase.(str_contains($normalizedBase, '?') ? '&' : '?').'page='.$page;
 @endphp
 
 <nav aria-label="{{ __('components.pagination.nav_label') }}" {{ $attributes }}>
