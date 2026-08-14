@@ -199,11 +199,11 @@ class Product extends Model
 
     /**
      * Translation keys (not raw text) for every reason status can't become
-     * Published right now. Conditions 5/6 (an active variant, a primary
-     * image) are deliberately ALWAYS included - Batch 3.2-B builds variants
-     * and the image gallery, neither exists yet, so nothing can ever
-     * satisfy them before then. Not a bug: every product in this batch
-     * stays unpublishable by design until that batch lands.
+     * Published right now. Condition 5 (an active variant) became a real
+     * check in Batch 3.2-B - condition 6 (a primary image) is still
+     * deliberately ALWAYS included, since the image gallery is Batch
+     * 3.2-C and doesn't exist yet. Not a bug: every product stays
+     * unpublishable on condition 6 by design until that batch lands.
      *
      * SEO (condition 4) reads the raw seoMetas() row directly, NOT
      * seoMeta() - seoMeta() merges a custom row over defaultSeoTitle()/
@@ -250,8 +250,14 @@ class Product extends Model
             $blockers[] = 'errors.product_missing_seo';
         }
 
-        // Deliberately unconditional until Batch 3.2-B - see docblock above.
-        $blockers[] = 'errors.product_missing_variant';
+        // Condition 5, now real (Batch 3.2-B Task 4) - at least one active
+        // (non-soft-deleted, is_active = true) variant.
+        if (! $this->variants()->where('is_active', true)->exists()) {
+            $blockers[] = 'errors.product_missing_variant';
+        }
+
+        // Condition 6 stays deliberately unconditional until Batch 3.2-C -
+        // the image gallery doesn't exist yet.
         $blockers[] = 'errors.product_missing_primary_image';
 
         return $blockers;
