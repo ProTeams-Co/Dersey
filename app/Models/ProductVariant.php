@@ -86,6 +86,71 @@ class ProductVariant extends Model
     }
 
     /**
+     * order_items.variant_id is nullOnDelete, not restrictOnDelete (unlike
+     * inventory_movements) - the DB will NOT stop a delete on its own, so
+     * this relation exists specifically so isProtected() can check it at
+     * the application level instead (Batch 3.2-B decision 1/2 - a variant
+     * with real sales history must never lose that link silently).
+     * Tracked as tech debt: order_items.variant_id should be
+     * restrictOnDelete like inventory_movements.variant_id already is -
+     * deferred to Phase 8, no migration this batch.
+     */
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class, 'variant_id');
+    }
+
+    /**
+     * True if this variant can never be removed (soft-deleted) at all -
+     * either because the DB itself would refuse it (inventory_movements.
+     * variant_id is restrictOnDelete, so even a soft-delete attempt
+     * followed by a real forceDelete later would fail) or because losing
+     * it would silently orphan real state (stock currently sitting on it,
+     * a reservation currently held, real order history).
+     *
+     * Reads from movements_count/order_items_count - eager-load both via
+     * ->withCount(['movements', 'orderItems']) on the calling query before
+     * calling this (or protectionReasons()) on more than one variant, same
+     * convention as optionsLabel()/displayImage() above. Batch 3.2-B's own
+     * "check every affected variant in one query, never N+1" requirement -
+     * the count columns come back on the SAME query that fetches the
+     * variants themselves, not a per-row follow-up.
+     */
+    public function isProtected(): bool
+    {
+        return $this->protectionReasons() !== [];
+    }
+
+    /**
+     * Translation keys (not raw text), same convention as
+     * Product::publicationBlockers()/Category::deletionBlockers().
+     *
+     * @return list<string>
+     */
+    public function protectionReasons(): array
+    {
+        $reasons = [];
+
+        if ($this->stock_quantity > 0) {
+            $reasons[] = 'errors.variant_protected_stock';
+        }
+
+        if ($this->reserved_quantity > 0) {
+            $reasons[] = 'errors.variant_protected_reserved';
+        }
+
+        if (($this->movements_count ?? 0) > 0) {
+            $reasons[] = 'errors.variant_protected_movements';
+        }
+
+        if (($this->order_items_count ?? 0) > 0) {
+            $reasons[] = 'errors.variant_protected_sales';
+        }
+
+        return $reasons;
+    }
+
+    /**
      * Computed, never a column - stock_quantity minus whatever's
      * currently held by active-but-unpaid carts. CLAUDE.md forbids caching
      * stock_quantity at all, and this is derived from it every time for
