@@ -33,6 +33,21 @@ final class Money implements JsonSerializable
         return new self(((int) $integerPart) * 100 + (int) $decimalPart);
     }
 
+    /**
+     * The null-safe form of fromMajor() - the one actually needed at every
+     * form-input boundary (ProductsController, ProductVariantMatrixService),
+     * where an optional money field (compare_at_price, cost_price, ...)
+     * legitimately arrives as null (already-nullable validation, or
+     * ConvertEmptyStringsToNull turning a blank field into null before
+     * validation even runs) alongside a required one that never is.
+     * Centralized here instead of each caller repeating its own
+     * `$value === null ? null : self::fromMajor($value)` ternary.
+     */
+    public static function fromMajorNullable(?string $major): ?self
+    {
+        return $major === null ? null : self::fromMajor($major);
+    }
+
     public static function zero(): self
     {
         return new self(0);
