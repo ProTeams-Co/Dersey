@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CategoriesController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MediaUploadController;
 use App\Http\Controllers\Admin\ProductsController;
+use App\Http\Controllers\Admin\ProductVariantsController;
 use Illuminate\Support\Facades\Route;
 
 // This file is already registered under prefix('admin')->name('admin.') in
@@ -94,5 +95,15 @@ Route::middleware(['admin.auth', 'admin.active'])->group(function (): void {
         // resolves through the default (non-trashed) scope.
         Route::post('{id}/restore', [ProductsController::class, 'restore'])->name('restore');
         Route::post('{id}/status', [ProductsController::class, 'status'])->name('status');
+
+        // Batch 3.2-B - the variant matrix tab's own actions, kept out of
+        // ProductsController (a different controller entirely, see
+        // ProductVariantsController's own docblock for why).
+        Route::prefix('{id}/variants')->name('variants.')->group(function (): void {
+            Route::post('preview', [ProductVariantsController::class, 'preview'])->name('preview');
+            Route::post('generate', [ProductVariantsController::class, 'generate'])->name('generate');
+            Route::put('/', [ProductVariantsController::class, 'update'])->name('update');
+            Route::post('{variantId}/toggle', [ProductVariantsController::class, 'toggle'])->name('toggle');
+        });
     });
 });
