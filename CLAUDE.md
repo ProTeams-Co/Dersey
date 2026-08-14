@@ -238,3 +238,13 @@ routes/
   composer test:mysql
   ```
   (بيشغّل `vendor/bin/pest -c phpunit.mysql.xml --group=mysql-critical` بس، مش السويت كله، عشان يفضل سريع وما يبطّاش دورة التطوير العادية). أي اختبار جديد بيلمس نفس الفئات دي (SQL خام/joins/قيود/FULLTEXT) لازم يتعلّم `->group('mysql-critical')` زيهم بالظبط.
+
+## 19. ديون تقنية معروفة (مسجّلة عمدًا، Phase 8)
+
+البنود دي معروفة ومقبولة مؤقتًا — **ممنوع حد يصلّحها من غير قرار صريح**، الهدف بس إنها متوثّقة عشان محدّش يكتشفها من الصفر أو يفترض إنها سهو:
+
+- **`order_items.variant_id` مش `restrictOnDelete()`** — على عكس `inventory_movements.variant_id` اللي فعلاً بـ `restrictOnDelete()` (قسم 14). يعني منتج اتباع فعليًا لسه متحمي من الحذف عن طريق `inventory_movements`، بس لو يومًا ما `inventory_movements` اتشالت أو الـ FK بتاعها اتغيّر من غير ما حد يلاحظ إن `order_items` بتعتمد على نفس الحماية بالتبعية، الحماية ممكن تختفي بصمت. لازم `order_items.variant_id` تاخد نفس `restrictOnDelete()` بشكل مستقل، مش تتكل على FK تاني.
+- **`authorize()` مكرّرة بين `App\Http\Controllers\Admin\AdminController` و`App\Http\Controllers\Admin\ProductVariantsController`** — نفس منطق `Gate::forUser(Auth::guard('admin')->user())` مكتوب في المكانين لأن `ProductVariantsController` مش وارث من `AdminController` (قرار Batch 3.2-B، الأسباب موثّقة في تاريخ الـ commits). أي تعديل مستقبلي على منطق الـ authorization في الأساسي (`AdminController`) لازم يتنسخ يدويًا للنسخة التانية لحد ما تتعمل trait مشتركة.
+- **تصحيح ترتيب الترقيم (id-tiebreaker، منع تكرار/إسقاط صفوف بين صفحتين متتاليتين) متطبّق في `ProductsTable` بس** — `App\Support\Admin\Tables\ProductsTable`. الجداول التانية اللي بترث من `AdminTable` (البراندات، التصنيفات، الخصائص) لسه معرّضة لنفس المشكلة (تكرار أو إسقاط صف لو فيه أكتر من صف بنفس قيمة عمود الترتيب). الإصلاح الصحيح مكانه `App\Support\Admin\AdminTable` نفسها (المحرك المشترك، قسم 17) مش كل جدول لوحده.
+
+Phase 8 هي اللي المفروض تتعامل مع البنود التلاتة دي مع بعض.
