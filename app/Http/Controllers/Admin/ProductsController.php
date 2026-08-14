@@ -12,8 +12,10 @@ use App\Models\Product;
 use App\Rules\AttributeValueMustBeNonVariant;
 use App\Rules\UniqueSlugPerLocale;
 use App\Services\Catalog\ProductService;
+use App\Services\Catalog\ProductVariantMatrixService;
 use App\Support\Admin\AdminTable;
 use App\Support\Admin\Tables\ProductsTable;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -80,6 +82,17 @@ class ProductsController extends AdminController
                 ->orderBy('sort')
                 ->get(),
             'selectedAttributeValueIds' => $model->attributeValues()->pluck('attribute_values.id')->all(),
+            'variantAttributes' => Attribute::where('is_variant', true)
+                ->where('is_active', true)
+                ->with(['translations', 'values.translations'])
+                ->orderBy('sort')
+                ->get(),
+            'variants' => $model->variants()
+                ->with(['attributeValues.attribute', 'attributeValues.translations'])
+                ->withCount('movements')
+                ->orderBy('sort')
+                ->get(),
+            'variantMatrixMaxCombinations' => ProductVariantMatrixService::MAX_COMBINATIONS,
         ]);
     }
 
@@ -188,6 +201,8 @@ class ProductsController extends AdminController
      */
     protected function beforeSave(Model $model, array &$data): void
     {
+        $this->convertPriceFields($data);
+
         $categoryIds = Arr::pull($data, 'category_ids', null);
         $attributeValueIds = Arr::pull($data, 'attribute_value_ids', null);
 
@@ -204,6 +219,34 @@ class ProductsController extends AdminController
             'seo' => Arr::pull($data, 'seo', null),
             'status' => Arr::pull($data, 'status', null),
         ];
+    }
+
+    /**
+     * Batch 3.2-M: MoneyCast::set() no longer accepts a raw major-unit
+     * decimal string ("199.50") - it used to silently (int)-truncate it to
+     * 199 piasters (1.99 EGP), a real bug that reached this exact
+     * controller and went undetected through 206 tests before being caught
+     * via a live admin session. rules() validates the SAME format
+     * (`/^\d+(\.\d{1,2})?$/`) Money::fromMajor() itself requires - by the
+     * time this runs, $request->validate() has already rejected anything
+     * that would make fromMajor() throw, so a bad format always surfaces
+     * as this method's own 422, never a 500 from here.
+     *
+     * Money::fromMajorNullable() (not fromMajor() directly) because
+     * compare_at_price/cost_price are legitimately absent from $data
+     * entirely on a partial update (never reach this loop at all - see
+     * the array_key_exists guard) or present as null (an optional field
+     * ConvertEmptyStringsToNull turned into null before validation, which
+     * 'nullable' then let straight through) - fromMajor() itself only
+     * accepts a non-null string and would TypeError on either case.
+     */
+    private function convertPriceFields(array &$data): void
+    {
+        foreach (['base_price', 'compare_at_price', 'cost_price'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $data[$field] = Money::fromMajorNullable($data[$field]);
+            }
+        }
     }
 
     protected function afterSave(Model $model, array $data): void
