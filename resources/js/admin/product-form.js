@@ -59,6 +59,7 @@ function initTabs() {
         if (!openedTabs.has(tab)) {
             openedTabs.add(tab);
             initLazyEditorsIn($panels.filter(`[data-product-tab-panel="${tab}"]`));
+            initLazyVariantsIn($panels.filter(`[data-product-tab-panel="${tab}"]`));
         }
     }
 
@@ -77,6 +78,20 @@ function initLazyEditorsIn($panel) {
     $panel.find('[data-editor-lazy]').each(function () {
         Editor.initEditor(this);
     });
+}
+
+/**
+ * Batch 3.2-B - the variant matrix (live preview, inline-editable grid,
+ * bulk edit, optimistic-lock version tracking) is a meaningfully large
+ * chunk of behavior that every other tab would otherwise pay for loading
+ * even when never opened - dynamically imported only the first time the
+ * variants tab itself is activated, same reasoning as CKEditor above.
+ */
+function initLazyVariantsIn($panel) {
+    const $container = $panel.find('[data-variant-matrix]');
+    if (!$container.length) return;
+
+    import('./product-variants').then((module) => module.default.init($container.get(0)));
 }
 
 function initSlugGeneration() {

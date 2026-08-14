@@ -81,7 +81,7 @@
             </div>
 
             <div data-product-tab-panel="variants" hidden>
-                <p class="text-sm text-muted">{{ __('admin.products.coming_soon_variants') }}</p>
+                @include('admin.products._tab-variants')
             </div>
 
             <div data-product-tab-panel="images" hidden>
