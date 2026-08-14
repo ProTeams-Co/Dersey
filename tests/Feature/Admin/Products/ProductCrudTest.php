@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -110,6 +111,61 @@ it('saves a new product as draft', function () {
         ->and($product->categories()->where('categories.id', $category->id)->exists())->toBeTrue()
         ->and($product->translate('ar')->name)->toBe('منتج تجريبي')
         ->and($product->translate('ar')->slug)->not->toBeNull();
+
+    // Batch 3.2-M: this test used to only confirm the product was CREATED,
+    // never what actually landed in base_price - which is exactly how the
+    // MoneyCast truncation bug ("199.50" -> 199 piasters instead of 19950)
+    // passed 206 tests undetected. DB::table() (not $product->base_price,
+    // which would round-trip back through the now-fixed cast and could
+    // mask a regression) is the real proof of what's on disk.
+    $rawBasePrice = DB::table('products')->where('id', $product->id)->value('base_price');
+    expect($rawBasePrice)->toBe(19950);
+});
+
+it('rejects a malformed base_price with a 422, never a 500 from Money::fromMajor()', function () {
+    // rules() validates the exact same format (/^\d+(\.\d{1,2})?$/)
+    // Money::fromMajor() itself requires - a bad format must never reach
+    // convertPriceFields() at all, so it surfaces as a normal validation
+    // 422, not an uncaught InvalidArgumentException/500.
+    actingAdminWithRole();
+    $category = Category::factory()->create();
+
+    foreach (['19.999', 'abc', '-5', '5.'] as $badPrice) {
+        $response = $this->post(route('admin.products.store'), [
+            'sku' => 'BAD-PRICE-'.uniqid(),
+            'base_price' => $badPrice,
+            'gender' => 'unisex',
+            'weight' => '300',
+            'primary_category_id' => $category->id,
+            'translations' => ['ar' => ['name' => 'منتج']],
+        ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('base_price');
+    }
+});
+
+it('stores compare_at_price as null when left empty, without throwing', function () {
+    // compare_at_price has no rule at all in createRules() (confirmed by
+    // reading it - only base_price is required on create), so this has to
+    // go through update(), where it IS validated ('nullable'). Submitting
+    // it as '' relies on ConvertEmptyStringsToNull turning it into null
+    // before validation runs; 'nullable' then lets that null straight
+    // through - convertPriceFields() must see null (not '') by the time
+    // it runs, since Money::fromMajorNullable(null) returning null
+    // (never calling fromMajor() at all) is what keeps this from
+    // throwing a TypeError.
+    actingAdminWithRole();
+    $product = Product::factory()->create(['compare_at_price' => 15000]);
+
+    $response = $this->put(route('admin.products.update', $product->id), [
+        'compare_at_price' => '',
+    ]);
+
+    $response->assertRedirect(route('admin.products.index'));
+
+    $raw = DB::table('products')->where('id', $product->id)->value('compare_at_price');
+    expect($raw)->toBeNull();
 });
 
 it('avoids a duplicate slug even against a soft-deleted product', function () {
