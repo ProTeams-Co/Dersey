@@ -32,5 +32,12 @@ return [
     'products_sku_checking' => 'Checking...',
     'products_sku_available' => 'This SKU is available.',
     'products_sku_taken' => 'This SKU is already taken.',
+    'admin_variant_default_value_for' => 'Default value for ":attribute" on existing variants',
+    'admin_variant_preview_summary' => 'Total: :total — New: :new — Kept: :kept — Removed: :removed',
+    'admin_variant_limit_warning' => 'That exceeds the maximum allowed (:limit) — select fewer values.',
+    'admin_variant_confirm_large_generate' => 'About :count variants will be generated. Continue?',
+    'admin_variant_counts' => 'Active: :active — Inactive: :inactive',
+    'admin_variant_conflict_list_title' => 'These variants were changed by someone else:',
+    'admin_variant_reload_button' => 'Reload the page',
 
 ];

@@ -32,5 +32,12 @@ return [
     'products_sku_checking' => 'جاري التحقق...',
     'products_sku_available' => 'الـ SKU ده متاح.',
     'products_sku_taken' => 'الـ SKU ده مستخدم قبل كده.',
+    'admin_variant_default_value_for' => 'قيمة افتراضية لخاصية ":attribute" للمتغيّرات الموجودة',
+    'admin_variant_preview_summary' => 'الإجمالي: :total — جديد: :new — محتفَظ به: :kept — هيتشال: :removed',
+    'admin_variant_limit_warning' => 'العدد أكبر من الحد الأقصى (:limit) — قلّل عدد القيم المختارة.',
+    'admin_variant_confirm_large_generate' => 'هيتولّد حوالي :count متغيّر. متأكد إنك عايز تكمل؟',
+    'admin_variant_counts' => 'نشط: :active — معطّل: :inactive',
+    'admin_variant_conflict_list_title' => 'المتغيّرات دي اتعدّلت من حد تاني:',
+    'admin_variant_reload_button' => 'إعادة تحميل الصفحة',
 
 ];
