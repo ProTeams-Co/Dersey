@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\BrandsController;
 use App\Http\Controllers\Admin\CategoriesController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MediaUploadController;
+use App\Http\Controllers\Admin\ProductImagesController;
 use App\Http\Controllers\Admin\ProductsController;
 use App\Http\Controllers\Admin\ProductVariantsController;
 use Illuminate\Support\Facades\Route;
@@ -104,6 +105,17 @@ Route::middleware(['admin.auth', 'admin.active'])->group(function (): void {
             Route::post('generate', [ProductVariantsController::class, 'generate'])->name('generate');
             Route::put('/', [ProductVariantsController::class, 'update'])->name('update');
             Route::post('{variantId}/toggle', [ProductVariantsController::class, 'toggle'])->name('toggle');
+        });
+
+        // Batch 3.2-C - the image gallery tab's own actions, kept out of
+        // ProductsController for the same reason variants.* is (see
+        // ProductImagesController's own docblock).
+        Route::prefix('{id}/images')->name('images.')->group(function (): void {
+            Route::post('/', [ProductImagesController::class, 'store'])->name('store');
+            Route::patch('reorder', [ProductImagesController::class, 'reorder'])->name('reorder');
+            Route::put('{imageId}', [ProductImagesController::class, 'update'])->name('update');
+            Route::post('{imageId}/primary', [ProductImagesController::class, 'primary'])->name('primary');
+            Route::delete('{imageId}', [ProductImagesController::class, 'destroy'])->name('destroy');
         });
     });
 });
