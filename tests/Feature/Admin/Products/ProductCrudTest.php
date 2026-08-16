@@ -302,7 +302,8 @@ it('reports the always-blocking variant/image conditions and a missing custom Se
 
     $blockers = $product->publicationBlockers();
 
-    // Conditions 5/6 - deliberately unconditional until Batch 3.2-B.
+    // Conditions 5/6 - both real checks now (Batch 3.2-B/3.2-C); this
+    // product has no variants and no images at all, so both fail.
     expect($blockers)->toContain('errors.product_missing_variant')
         ->toContain('errors.product_missing_primary_image');
 

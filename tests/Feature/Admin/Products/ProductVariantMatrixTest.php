@@ -410,11 +410,38 @@ it('blocks condition 5 when every variant is inactive', function () {
     expect($product->publicationBlockers())->toContain('errors.product_missing_variant');
 });
 
-it('still blocks condition 6 (primary image) unconditionally - Batch 3.2-C', function () {
+it('blocks condition 6 (primary image) when the product has no primary image', function () {
     actingAdminWithRole();
     $product = makeVariantProduct();
 
     expect($product->publicationBlockers())->toContain('errors.product_missing_primary_image');
+});
+
+it('lets condition 6 pass once the product has a primary image', function () {
+    actingAdminWithRole();
+    $product = makeVariantProduct();
+
+    \App\Models\ProductImage::factory()->for($product)->primary()->create();
+
+    expect($product->publicationBlockers())->not->toContain('errors.product_missing_primary_image');
+});
+
+it('is actually publishable (canBePublished() = true, empty blockers) once every condition is genuinely met', function () {
+    actingAdminWithRole();
+    $product = makeVariantProduct();
+    $product->translate('ar')->update(['description' => 'وصف كامل']);
+    $product->translate('en')->update(['description' => 'Full description']);
+    $product->seoMetas()->create(['locale' => 'ar', 'title' => 'عنوان', 'description' => 'وصف']);
+    $product->seoMetas()->create(['locale' => 'en', 'title' => 'Title', 'description' => 'Description']);
+
+    $size = Attribute::factory()->variant()->create();
+    $s = AttributeValue::factory()->create(['attribute_id' => $size->id]);
+    app(ProductVariantMatrixService::class)->generateMatrix($product, [$size->id => [$s->id]]);
+
+    \App\Models\ProductImage::factory()->for($product)->primary()->create();
+
+    expect($product->publicationBlockers())->toBe([]);
+    expect($product->canBePublished())->toBeTrue();
 });
 
 it('stores the variant price in piasters via MoneyCast', function () {
