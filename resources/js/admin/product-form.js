@@ -60,6 +60,7 @@ function initTabs() {
             openedTabs.add(tab);
             initLazyEditorsIn($panels.filter(`[data-product-tab-panel="${tab}"]`));
             initLazyVariantsIn($panels.filter(`[data-product-tab-panel="${tab}"]`));
+            initLazyImagesIn($panels.filter(`[data-product-tab-panel="${tab}"]`));
         }
     }
 
@@ -92,6 +93,19 @@ function initLazyVariantsIn($panel) {
     if (!$container.length) return;
 
     import('./product-variants').then((module) => module.default.init($container.get(0)));
+}
+
+/**
+ * Batch 3.2-C - same reasoning as initLazyVariantsIn() right above: the
+ * image gallery (its own FilePond instance, drag-reorder, per-card edit)
+ * is a meaningfully large chunk of behavior every OTHER product tab would
+ * otherwise pay for loading even when never opened.
+ */
+function initLazyImagesIn($panel) {
+    const $container = $panel.find('[data-image-gallery]');
+    if (!$container.length) return;
+
+    import('./product-images').then((module) => module.default.init($container.get(0)));
 }
 
 function initSlugGeneration() {
