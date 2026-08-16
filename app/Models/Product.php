@@ -109,9 +109,16 @@ class Product extends Model
         return $this->hasMany(ProductVariant::class);
     }
 
+    /**
+     * Batch 3.2-C - ordered by `sort` so the gallery renders in the order
+     * the admin arranged it, not insertion order. No new migration needed:
+     * the covering index(['product_id', 'sort']) already exists on
+     * product_images (Batch 3.2-C's own table), added specifically for
+     * this use even before this relation itself used it.
+     */
     public function images(): HasMany
     {
-        return $this->hasMany(ProductImage::class);
+        return $this->hasMany(ProductImage::class)->orderBy('sort');
     }
 
     public function reviews(): HasMany
@@ -256,9 +263,15 @@ class Product extends Model
             $blockers[] = 'errors.product_missing_variant';
         }
 
-        // Condition 6 stays deliberately unconditional until Batch 3.2-C -
-        // the image gallery doesn't exist yet.
-        $blockers[] = 'errors.product_missing_primary_image';
+        // Condition 6, now real (Batch 3.2-C) - at least one image flagged
+        // is_primary = true. Reads the images() relation directly (not
+        // primaryImage(), which returns null just as easily for "no images
+        // loaded yet" as for "no primary set" - a plain ->exists() query
+        // is unambiguous and doesn't depend on the relation being
+        // eager-loaded).
+        if (! $this->images()->where('is_primary', true)->exists()) {
+            $blockers[] = 'errors.product_missing_primary_image';
+        }
 
         return $blockers;
     }
