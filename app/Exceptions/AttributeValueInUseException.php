@@ -15,17 +15,25 @@ use Illuminate\Http\Request;
  * restrictOnDelete() FK on product_variant_values, which only fires on a
  * genuine forceDelete(), not the normal delete() an admin screen uses.
  * render() follows the same pattern as CategoryHasDependentsException.
+ *
+ * Batch 3.2-C: deletionBlockers() can now return more than one reason at
+ * once (used by a variant AND pictured in the gallery) - render() re-reads
+ * it fresh (safe: this fires from `deleting()`, before anything is
+ * actually removed) and joins every applicable translated reason, instead
+ * of a single hardcoded message that only ever described the variant case.
  */
 class AttributeValueInUseException extends Exception
 {
     public function __construct(public readonly AttributeValue $value)
     {
-        parent::__construct("Attribute value #{$value->id} cannot be deleted: still used by product variants.");
+        parent::__construct("Attribute value #{$value->id} cannot be deleted: still in use.");
     }
 
     public function render(Request $request): JsonResponse|RedirectResponse
     {
-        $message = __('errors.attribute_value_in_use');
+        $message = collect($this->value->deletionBlockers())
+            ->map(fn (string $key) => __($key))
+            ->implode(' ');
 
         if ($request->expectsJson()) {
             return response()->json(['message' => $message], 422);
