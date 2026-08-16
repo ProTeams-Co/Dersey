@@ -39,5 +39,9 @@ return [
     'admin_variant_counts' => 'Active: :active — Inactive: :inactive',
     'admin_variant_conflict_list_title' => 'These variants were changed by someone else:',
     'admin_variant_reload_button' => 'Reload the page',
+    'admin_image_counter' => ':count/:max',
+    'admin_image_delete_confirm' => 'Are you sure you want to delete this image?',
+    'admin_image_limit_reached' => 'You have reached the maximum number of images.',
+    'admin_image_upload_failed' => 'Image upload failed, try again.',
 
 ];

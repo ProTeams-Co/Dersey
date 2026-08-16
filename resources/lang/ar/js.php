@@ -39,5 +39,9 @@ return [
     'admin_variant_counts' => 'نشط: :active — معطّل: :inactive',
     'admin_variant_conflict_list_title' => 'المتغيّرات دي اتعدّلت من حد تاني:',
     'admin_variant_reload_button' => 'إعادة تحميل الصفحة',
+    'admin_image_counter' => ':count/:max',
+    'admin_image_delete_confirm' => 'متأكد إنك عايز تحذف الصورة دي؟',
+    'admin_image_limit_reached' => 'وصلت للحد الأقصى لعدد الصور.',
+    'admin_image_upload_failed' => 'فشل رفع الصورة، حاول تاني.',
 
 ];
