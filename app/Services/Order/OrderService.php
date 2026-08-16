@@ -10,6 +10,7 @@ use App\Enums\PaymentStatus;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidOrderTransitionException;
 use App\Models\Address;
+use App\Models\Attribute;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Order;
@@ -154,8 +155,14 @@ class OrderService
             $order->order_number = $this->generateOrderNumber($order);
             $order->save();
 
+            // Resolved once, outside the loop below - ProductVariant::
+            // displayImage() needs it per item, but Attribute::colorAttribute()
+            // is a real query (not a relation), so resolving it per item
+            // would be a fresh N+1 on every checkout with more than one item.
+            $colorAttribute = Attribute::colorAttribute();
+
             foreach ($items as $item) {
-                $this->snapshotItem($order, $item);
+                $this->snapshotItem($order, $item, $colorAttribute);
                 // The variant's stock was already re-locked and verified
                 // above; commit() re-locks it (cheap - InnoDB row locks
                 // are reentrant within the same transaction) and is what
@@ -269,7 +276,7 @@ class OrderService
      * request locale, since the order must display correctly however it's
      * viewed later.
      */
-    private function snapshotItem(Order $order, CartItem $item): void
+    private function snapshotItem(Order $order, CartItem $item, ?Attribute $colorAttribute): void
     {
         $variant = $item->variant;
 
@@ -290,7 +297,7 @@ class OrderService
             'product_name' => $productName,
             'variant_options' => $variantOptions,
             'sku' => $variant->sku,
-            'image_path' => $variant->displayImage()?->path,
+            'image_path' => $variant->displayImage($colorAttribute)?->path,
             'unit_price' => $item->unit_price,
             'quantity' => $item->quantity,
             'line_total' => $item->lineTotal(),

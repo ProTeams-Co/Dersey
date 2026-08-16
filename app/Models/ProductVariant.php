@@ -196,23 +196,32 @@ class ProductVariant extends Model
 
     /**
      * Variant's own image, else the first image tagged with this
-     * variant's color, else the product's single primary image. Assumes
-     * the seeded 'color' attribute code (AttributeSeeder, Batch 2.2) marks
-     * which of a variant's attribute values is its color - there's no
-     * dedicated boolean on Attribute for this, so the code string is the
-     * only signal available. Reads from already-loaded relations
-     * (image, attributeValues.attribute, product.images) - eager-load
-     * before calling on more than one variant.
+     * variant's color, else the product's single primary image. "Which of
+     * this variant's attribute values is its color" is resolved via
+     * Attribute::colorAttribute() (Batch 3.2-C decision A - a real,
+     * type-based signal), not a hardcoded attribute code string. Reads
+     * from already-loaded relations (image, attributeValues.attribute,
+     * product.images) - eager-load before calling on more than one
+     * variant.
+     *
+     * $colorAttribute is optional and exists purely to avoid an N+1:
+     * Attribute::colorAttribute() is a real query (not a relation), so a
+     * caller looping this over several variants (OrderService::
+     * snapshotItem(), once per cart item) must resolve it ONCE beforehand
+     * and pass it in here - a single-variant call site (admin screens) can
+     * safely omit it and let this resolve it itself.
      */
-    public function displayImage(): ?ProductImage
+    public function displayImage(?\App\Models\Attribute $colorAttribute = null): ?ProductImage
     {
         if ($this->image) {
             return $this->image;
         }
 
-        $colorValueId = $this->attributeValues
-            ->first(fn (AttributeValue $value) => $value->attribute->code === 'color')
-            ?->id;
+        $colorAttributeId = ($colorAttribute ?? \App\Models\Attribute::colorAttribute())?->id;
+
+        $colorValueId = $colorAttributeId
+            ? $this->attributeValues->first(fn (AttributeValue $value) => $value->attribute_id === $colorAttributeId)?->id
+            : null;
 
         if ($colorValueId) {
             $colorImage = $this->product->imagesForColor($colorValueId)->first();
