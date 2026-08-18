@@ -16,6 +16,7 @@ return [
     'category_has_children' => 'This category still has sub-categories. Move or delete them first.',
     'category_has_products' => 'This category still has products assigned to it. Remove them from this category first.',
     'insufficient_stock' => 'The requested quantity is not currently available in stock.',
+    'stocktake_no_change' => 'The count you entered matches the current stock exactly - nothing to record.',
     'coupon_limit_reached' => 'This coupon has reached its maximum number of uses.',
     'coupon_inactive' => 'This coupon is not currently active.',
     'coupon_not_started' => 'This coupon is not active yet.',
