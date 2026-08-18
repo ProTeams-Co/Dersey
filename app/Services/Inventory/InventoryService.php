@@ -5,6 +5,8 @@ namespace App\Services\Inventory;
 use App\Enums\InventoryMovementType;
 use App\Events\VariantLowStock;
 use App\Exceptions\InsufficientStockException;
+use App\Exceptions\StocktakeNoChangeException;
+use App\Models\Admin;
 use App\Models\InventoryMovement;
 use App\Models\ProductVariant;
 use Illuminate\Database\Eloquent\Model;
@@ -23,14 +25,25 @@ use Illuminate\Support\Facades\DB;
  */
 class InventoryService
 {
+    /**
+     * $admin is optional and last on purpose (Batch 3.3 decision 1) - every
+     * one of adjust()'s 2 existing callers before this batch (order
+     * cancellation restocking, ProductVariantMatrixService's initial-stock
+     * write) is itself an automatic/system-initiated write with no admin
+     * actually behind it, and stays that way by default (null admin_id) -
+     * only the new manual-adjustment admin screen (Batch 3.3) passes one
+     * explicitly. null here is NOT "unknown admin" - it's the correct,
+     * meaningful value for a movement nothing human actually triggered.
+     */
     public function adjust(
         ProductVariant $variant,
         int $quantity,
         InventoryMovementType $type,
         ?Model $reference = null,
         ?string $note = null,
+        ?Admin $admin = null,
     ): InventoryMovement {
-        return DB::transaction(function () use ($variant, $quantity, $type, $reference, $note) {
+        return DB::transaction(function () use ($variant, $quantity, $type, $reference, $note, $admin) {
             $locked = ProductVariant::query()->lockForUpdate()->findOrFail($variant->id);
 
             $before = $locked->stock_quantity;
@@ -51,6 +64,7 @@ class InventoryService
                 'quantity_after' => $after,
                 'reference_type' => $reference?->getMorphClass(),
                 'reference_id' => $reference?->getKey(),
+                'admin_id' => $admin?->id,
                 'note' => $note,
             ]);
 
@@ -129,10 +143,17 @@ class InventoryService
      * $reference is optional (added in Batch 2.4, backward-compatible with
      * existing callers) so the resulting movement can link back to the
      * Order it belongs to, same as adjust() already supports.
+     *
+     * $admin optional, same reasoning as adjust() above - commit()'s only
+     * caller (OrderService::createFromCart(), during checkout) never has
+     * an admin behind it, so this stays null there by default; nothing
+     * currently passes one, but the parameter exists for the same
+     * consistency reason (a future admin-initiated commit shouldn't need
+     * a signature change to attribute itself).
      */
-    public function commit(ProductVariant $variant, int $quantity, ?Model $reference = null): InventoryMovement
+    public function commit(ProductVariant $variant, int $quantity, ?Model $reference = null, ?Admin $admin = null): InventoryMovement
     {
-        return DB::transaction(function () use ($variant, $quantity, $reference) {
+        return DB::transaction(function () use ($variant, $quantity, $reference, $admin) {
             $locked = ProductVariant::query()->lockForUpdate()->findOrFail($variant->id);
 
             if ($quantity > $locked->stock_quantity) {
@@ -152,6 +173,56 @@ class InventoryService
                 'quantity_after' => $locked->stock_quantity,
                 'reference_type' => $reference?->getMorphClass(),
                 'reference_id' => $reference?->getKey(),
+                'admin_id' => $admin?->id,
+            ]);
+
+            $this->dispatchLowStockIfNeeded($locked);
+
+            return $movement;
+        });
+    }
+
+    /**
+     * Batch 3.3 decision 2 - InventoryMovementType::Adjust's first real
+     * consumer. Fundamentally different shape from adjust(): the admin
+     * enters the TRUE FINAL COUNT from a physical stocktake, not a delta -
+     * "the shelf has 47 units", not "add 5". The delta (which can land
+     * either positive or negative) is computed HERE, after the row lock is
+     * acquired, never by the caller beforehand - a delta precomputed from
+     * an unlocked read could be stale by the time this actually writes,
+     * silently landing on the wrong final count under concurrent access
+     * (the exact class of bug every other lockForUpdate()-first method in
+     * this service exists to prevent).
+     *
+     * $newCount is trusted to already be >= 0 (the admin's own request
+     * validation layer rejects a negative count as a normal 422 before
+     * this is ever called - never left to InsufficientStockException's
+     * "insufficient stock" wording, which would be a confusing, wrong
+     * message for a stocktake miscount).
+     */
+    public function stocktake(ProductVariant $variant, int $newCount, string $note, ?Admin $admin = null): InventoryMovement
+    {
+        return DB::transaction(function () use ($variant, $newCount, $note, $admin) {
+            $locked = ProductVariant::query()->lockForUpdate()->findOrFail($variant->id);
+
+            $before = $locked->stock_quantity;
+            $delta = $newCount - $before;
+
+            if ($delta === 0) {
+                throw new StocktakeNoChangeException($locked);
+            }
+
+            $locked->stock_quantity = $newCount;
+            $locked->saveWithVersion();
+
+            $movement = InventoryMovement::create([
+                'variant_id' => $locked->id,
+                'type' => InventoryMovementType::Adjust,
+                'quantity' => $delta,
+                'quantity_before' => $before,
+                'quantity_after' => $newCount,
+                'admin_id' => $admin?->id,
+                'note' => $note,
             ]);
 
             $this->dispatchLowStockIfNeeded($locked);

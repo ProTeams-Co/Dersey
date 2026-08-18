@@ -7,6 +7,7 @@ use App\Models\Concerns\HasDefaultActivityLog;
 use App\Notifications\AdminResetPasswordNotification;
 use Database\Factories\AdminFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -46,6 +47,18 @@ class Admin extends Authenticatable
             'password' => 'hashed',
             'status' => AdminStatus::class,
         ];
+    }
+
+    /**
+     * Batch 3.3 - the inverse of InventoryMovement::admin(). Most movements
+     * have this null (automatic writes - checkout, cart reserve/release -
+     * never have an admin behind them by design, see InventoryService::
+     * adjust()'s own docblock); needed here for the movement log's
+     * "filter by admin" filter.
+     */
+    public function inventoryMovements(): HasMany
+    {
+        return $this->hasMany(InventoryMovement::class);
     }
 
     /**

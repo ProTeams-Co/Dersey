@@ -12,6 +12,7 @@ use App\Models\ProductVariant;
 use App\Services\Inventory\InventoryService;
 use App\Support\Money;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -381,12 +382,18 @@ class ProductVariantMatrixService
                 $initialStock = (int) ($row['initial_stock'] ?? 0);
 
                 if ($initialStock > 0 && $variant->movements()->doesntExist()) {
+                    // Batch 3.3 decision 1 - this write genuinely does come
+                    // from an admin (this whole method only ever runs from
+                    // ProductVariantsController::update(), an admin HTTP
+                    // request), unlike adjust()'s other callers (order
+                    // cancellation, cart operations), which stay null.
                     app(InventoryService::class)->adjust(
                         $variant,
                         $initialStock,
                         InventoryMovementType::In,
                         $variant,
                         __('admin.products.variant_initial_stock_note'),
+                        Auth::guard('admin')->user(),
                     );
                 }
             }
