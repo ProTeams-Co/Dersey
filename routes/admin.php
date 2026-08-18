@@ -8,6 +8,8 @@ use App\Http\Controllers\Admin\Auth\ResetPasswordController;
 use App\Http\Controllers\Admin\BrandsController;
 use App\Http\Controllers\Admin\CategoriesController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\InventoryController;
+use App\Http\Controllers\Admin\InventoryMovementsController;
 use App\Http\Controllers\Admin\MediaUploadController;
 use App\Http\Controllers\Admin\ProductImagesController;
 use App\Http\Controllers\Admin\ProductsController;
@@ -116,6 +118,22 @@ Route::middleware(['admin.auth', 'admin.active'])->group(function (): void {
             Route::put('{imageId}', [ProductImagesController::class, 'update'])->name('update');
             Route::post('{imageId}/primary', [ProductImagesController::class, 'primary'])->name('primary');
             Route::delete('{imageId}', [ProductImagesController::class, 'destroy'])->name('destroy');
+        });
+    });
+
+    // Batch 3.3 - route names are fixed to admin.inventory.* by
+    // config/admin-menu.php's existing sidebar entry (seeded well before
+    // this batch - see InventoryController's own docblock), not derived
+    // from AdminController's default model-name convention.
+    Route::prefix('inventory')->name('inventory.')->group(function (): void {
+        Route::get('/', [InventoryController::class, 'index'])->name('index');
+        Route::get('{id}/threshold', [InventoryController::class, 'editThreshold'])->name('threshold.edit');
+        Route::put('{id}/threshold', [InventoryController::class, 'updateThreshold'])->name('threshold');
+        Route::get('{id}/adjust', [InventoryController::class, 'createAdjustment'])->name('adjust.create');
+        Route::post('{id}/adjust', [InventoryController::class, 'adjust'])->name('adjust');
+
+        Route::prefix('movements')->name('movements.')->group(function (): void {
+            Route::get('/', [InventoryMovementsController::class, 'index'])->name('index');
         });
     });
 });
