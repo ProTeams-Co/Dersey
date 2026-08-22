@@ -10,6 +10,7 @@ use App\Enums\PaymentStatus;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\InvalidOrderTransitionException;
 use App\Models\Address;
+use App\Models\Admin;
 use App\Models\Attribute;
 use App\Models\Cart;
 use App\Models\CartItem;
@@ -227,7 +228,7 @@ class OrderService
             ]);
 
             if ($newStatus === OrderStatus::Cancelled) {
-                $this->restoreInventory($order);
+                $this->restoreInventory($order, $changedBy);
             }
         });
     }
@@ -304,8 +305,28 @@ class OrderService
         ]);
     }
 
-    private function restoreInventory(Order $order): void
+    /**
+     * Batch 3.4 decision 1 - $changedBy (transitionTo()'s own parameter,
+     * unchanged in shape: whoever/whatever triggered this transition) is
+     * threaded through here so the resulting InventoryMovement rows can
+     * carry the same attribution order_status_histories.changed_by
+     * already records - before this fix, the two audit trails could
+     * disagree (history says "Admin X cancelled this", the stock-restore
+     * movement says admin_id = null).
+     *
+     * $changedBy is typed ?Model (transitionTo()'s own contract - it can
+     * be an Admin, a User, or nothing at all for a system-initiated
+     * transition) but InventoryMovement.admin_id is specifically an admin
+     * reference, not "whoever changed the order status". A User isn't an
+     * admin action attributable to admin_id, so only an actual Admin
+     * instance is ever forwarded to InventoryService::adjust() - anything
+     * else (User, or null) resolves to null here, exactly like an
+     * automated/system-initiated cancellation always has.
+     */
+    private function restoreInventory(Order $order, ?Model $changedBy = null): void
     {
+        $admin = $changedBy instanceof Admin ? $changedBy : null;
+
         // Explicit query, not the $order->items property - this method
         // doesn't control whether the caller eager-loaded `items`, and
         // preventLazyLoading only intercepts property access, not an
@@ -320,7 +341,8 @@ class OrderService
                 $item->quantity,
                 InventoryMovementType::In,
                 $order,
-                'Order cancelled - stock restored.'
+                'Order cancelled - stock restored.',
+                $admin,
             );
         }
     }
