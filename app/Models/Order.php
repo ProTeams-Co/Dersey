@@ -10,6 +10,7 @@ use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * No SoftDeletes - orders are never deleted (CLAUDE.md: financial records
@@ -115,5 +116,20 @@ class Order extends Model
     public function returnRequests(): HasMany
     {
         return $this->hasMany(ReturnRequest::class);
+    }
+
+    /**
+     * Batch 3.4 - the inverse of InventoryMovement::reference() (a plain
+     * morphTo(), default column names), for the order-detail screen's own
+     * "حركات المخزون المرتبطة" section. Deliberately scoped to movements
+     * that reference THIS order directly (restoreInventory()'s cancellation
+     * restocks, and InventoryService::commit() during checkout) - not
+     * every movement ever logged against the order's variants, which could
+     * include unrelated manual adjustments from the Inventory screen that
+     * have nothing to do with this specific order.
+     */
+    public function inventoryMovements(): MorphMany
+    {
+        return $this->morphMany(InventoryMovement::class, 'reference');
     }
 }
