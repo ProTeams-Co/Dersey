@@ -11,6 +11,8 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\InventoryMovementsController;
 use App\Http\Controllers\Admin\MediaUploadController;
+use App\Http\Controllers\Admin\OrderShipmentsController;
+use App\Http\Controllers\Admin\OrdersController;
 use App\Http\Controllers\Admin\ProductImagesController;
 use App\Http\Controllers\Admin\ProductsController;
 use App\Http\Controllers\Admin\ProductVariantsController;
@@ -135,5 +137,19 @@ Route::middleware(['admin.auth', 'admin.active'])->group(function (): void {
         Route::prefix('movements')->name('movements.')->group(function (): void {
             Route::get('/', [InventoryMovementsController::class, 'index'])->name('index');
         });
+    });
+
+    // Batch 3.4 - index-only + show (no create/store/destroy/bulkAction
+    // routes at all - an order is never created or deleted from this
+    // screen, and a bulk status change is explicitly out of scope, see
+    // OrdersController's own docblock).
+    Route::prefix('orders')->name('orders.')->group(function (): void {
+        Route::get('/', [OrdersController::class, 'index'])->name('index');
+        Route::get('{id}', [OrdersController::class, 'show'])->name('show');
+        Route::patch('{id}/note', [OrdersController::class, 'updateNote'])->name('note');
+        Route::post('{id}/transition', [OrdersController::class, 'transition'])->name('transition');
+
+        Route::post('{id}/shipments', [OrderShipmentsController::class, 'store'])->name('shipments.store');
+        Route::put('{id}/shipments/{shipmentId}', [OrderShipmentsController::class, 'update'])->name('shipments.update');
     });
 });
